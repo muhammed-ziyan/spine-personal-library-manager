@@ -1,0 +1,5 @@
+# Spine is one person's private library. Nothing behind the sign-in screen is
+# reachable without a password, and the sign-in screen itself is not worth
+# indexing — so ask crawlers to stay out entirely.
+User-agent: *
+Disallow: /

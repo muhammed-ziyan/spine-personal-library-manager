@@ -4,8 +4,9 @@ import basicSsl from '@vitejs/plugin-basic-ssl'
 import { VitePWA } from 'vite-plugin-pwa'
 import { fileURLToPath, URL } from 'node:url'
 
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ command, mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
+  const isDev = command === 'serve'
   // Where the local dev backend (scripts/dev-backend.ts) is listening. The dev server proxies
   // `/api` to it so the app can be served over HTTPS (required for the camera on phones)
   // without the browser blocking the request as mixed content.
@@ -15,8 +16,9 @@ export default defineConfig(({ mode }) => {
     plugins: [
       react(),
       // Self-signed certificate for `npm run dev`. Browsers only expose the camera on secure
-      // origins, so the LAN URL must be https:// when testing the scanner on a phone.
-      basicSsl(),
+      // origins, so the LAN URL must be https:// when testing the scanner on a phone. Serving
+      // only; production is served over Vercel's own TLS.
+      isDev && basicSsl(),
       VitePWA({
         registerType: 'autoUpdate',
         includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
@@ -46,6 +48,16 @@ export default defineConfig(({ mode }) => {
     ],
     resolve: {
       alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
+    },
+    // The `[spine] → action` request trace is a development aid: it prints the payload of
+    // every call, which has no business in a deployed console. Marking it pure lets the
+    // minifier drop the calls entirely. `console.error` is deliberately kept — it is how a
+    // misconfigured deployment gets diagnosed from a phone.
+    esbuild: { pure: isDev ? [] : ['console.debug'] },
+    build: {
+      // Shipping sourcemaps would publish the readable source of the whole app.
+      sourcemap: false,
+      target: 'es2022',
     },
     server: {
       port: 5173,

@@ -143,7 +143,27 @@ Then open the app and sign in with the username and password you put in Script P
 
 Only `VITE_`-prefixed variables reach the browser, which is precisely why the password is not one of them. Never add the password to Vercel's environment: it belongs in Script Properties, where only your Apps Script can read it.
 
-`vercel.json` in the repo root handles the rest — single-page-app rewrites, so deep links like `/books/BK-00007` survive a refresh, plus a few security headers.
+### 7. Deploy to Vercel
+
+Import the repository at [vercel.com/new](https://vercel.com/new). Vercel reads `vercel.json` and needs no manual configuration — framework *Vite*, `npm run build`, output `dist/`. The only thing you must add is the `VITE_APPS_SCRIPT_URL` environment variable above.
+
+`vercel.json` also handles:
+
+- **Single-page-app rewrites**, so deep links like `/books/BK-00007` survive a refresh. Static files are matched first, so the service worker and assets are still served normally.
+- **Caching** — the hashed files in `/assets` are immutable for a year; fonts and icons for 30 days; `sw.js` and the manifest are always revalidated, so an update reaches an installed PWA on the next launch.
+- **Security headers**, including a Content-Security-Policy that limits the app to its own origin plus `script.google.com` and `openlibrary.org`. See *Security* below.
+
+Before pushing, the same checks CI would run:
+
+```bash
+npm run lint && npm run typecheck && npm test && npm run build
+```
+
+`npm run preview` serves the built bundle, but without the headers from `vercel.json` — a Vercel preview deployment is the faithful test.
+
+#### Updating
+
+Every push to `main` redeploys. Because `VITE_APPS_SCRIPT_URL` is baked in at build time, changing it in Vercel's settings requires a **redeploy** to take effect; changing the *Apps Script* code instead requires a new deployment version there, and no rebuild here.
 
 ## Security
 
@@ -169,6 +189,8 @@ Controls in the backend:
 - **Rate limiting** — 120 requests per minute per deployment.
 - **CORS** — Apps Script forces `Access-Control-Allow-Origin: *` and cannot answer pre-flights; requests are therefore sent as simple `text/plain` POSTs. Production builds refuse to talk to anything but `script.google.com`.
 - **XSS** — all book data is rendered through React's escaped output; no `innerHTML`.
+- **Response headers** (`vercel.json`) — a Content-Security-Policy confines the app to its own origin: scripts and fonts from `'self'` only, connections only to `script.google.com`, `script.googleusercontent.com` (where Apps Script redirects) and `openlibrary.org`, images additionally from `covers.openlibrary.org`. `object-src 'none'`, `base-uri 'self'` and `frame-ancestors 'none'` close the usual injection escape hatches. `style-src` allows `'unsafe-inline'` because React writes a handful of computed `style` attributes — progress bars and skeletons. Alongside it: HSTS, `nosniff`, `X-Frame-Options: DENY` and a `Permissions-Policy` granting the camera to this origin alone, denying microphone and geolocation outright.
+- **Build hygiene** — production bundles carry no sourcemaps and no request tracing; the `[spine]` debug log that prints each payload is dropped by the minifier, while `console.error` is kept so a misconfigured deployment can still be diagnosed. `robots.txt` asks crawlers to stay out.
 - **Camera** — started only when you tap *Start Scanning*, stopped on success, cancel, navigation or backgrounding; frames are decoded in-browser and never stored or uploaded.
 
 Before publishing, `npm test` runs the backend against an in-memory Sheets stand-in covering sign-in, token forgery and expiry, lockout, validation, duplicates, ID generation, formula escaping and error leakage.

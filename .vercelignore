@@ -1,0 +1,14 @@
+# Files Vercel does not need to upload to run `npm run build`. This only trims
+# the deployment upload; it has no effect on what the build produces.
+
+# The original design bundle, kept in the repo for reference (~330 KB).
+Spine.html
+
+# Local build output and incremental state — Vercel builds from source.
+dist/
+*.tsbuildinfo
+
+# Never upload local environment files, even by accident.
+.env
+.env.*
+!.env.example
