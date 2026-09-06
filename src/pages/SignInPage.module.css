@@ -1,0 +1,78 @@
+.screen {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6) var(--page-padding);
+  background:
+    radial-gradient(60% 40% at 50% 0%, rgba(185, 85, 59, 0.12), transparent 70%),
+    var(--color-bg);
+}
+
+.card {
+  width: 100%;
+  max-width: 24rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-3);
+  padding: var(--space-10) var(--space-6) var(--space-8);
+  background: var(--color-surface);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  animation: page-in var(--duration-slow) var(--ease-out);
+}
+
+.logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 4rem;
+  height: 4rem;
+  border-radius: var(--radius-lg);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  margin-bottom: var(--space-2);
+}
+
+.title {
+  font-size: var(--text-3xl);
+}
+
+.tagline {
+  color: var(--color-ink-secondary);
+  margin-bottom: var(--space-4);
+}
+
+.buttonWrap {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  min-height: 2.75rem;
+}
+
+.googleButton {
+  width: 100%;
+  max-width: 20rem;
+  display: flex;
+  justify-content: center;
+}
+
+.error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+  font-size: var(--text-sm);
+}
+
+.note {
+  margin-top: var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--color-ink-muted);
+}

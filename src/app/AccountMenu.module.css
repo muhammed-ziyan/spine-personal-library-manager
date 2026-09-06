@@ -1,0 +1,24 @@
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: var(--tap-min);
+  height: var(--tap-min);
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--color-surface);
+  color: var(--color-ink-secondary);
+  box-shadow: var(--shadow-sm), inset 0 0 0 1px var(--color-border);
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+
+.trigger:active {
+  transform: scale(0.94);
+}
+
+.trigger img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
