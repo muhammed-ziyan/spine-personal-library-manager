@@ -293,7 +293,7 @@ export function createBackend(options: BackendOptions = {}): Backend {
 
 /** Signed (Java-style) bytes, which is how Apps Script hands back a digest. */
 function signedBytes(buffer: Buffer): number[] {
-  return Array.from(buffer).map((b) => (b > 127 ? b - 256 : b))
+  return Array.from(buffer as Uint8Array).map((b: number) => (b > 127 ? b - 256 : b))
 }
 
 /**

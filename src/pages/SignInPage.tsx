@@ -1,4 +1,4 @@
-import { Icon, Logo } from '@/components'
+import { Logo } from '@/components'
 import { SignInForm } from '@/features/auth/SignInForm'
 import { useSession } from '@/hooks/useSession'
 import styles from './SignInPage.module.css'
@@ -34,10 +34,7 @@ export function SignInPage() {
 
             <SignInForm />
 
-            <p className={styles.privacy}>
-              <Icon name="lock" size={14} className={styles.privacyIcon} />
-              Your password is checked by your own Google Apps Script and is never stored on this device.
-            </p>
+        
           </>
         ) : (
           <div className={styles.cardHeader}>

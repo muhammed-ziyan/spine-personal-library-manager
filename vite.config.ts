@@ -30,7 +30,9 @@ export default defineConfig(({ command, mode }) => {
           background_color: '#f5ead8',
           display: 'standalone',
           orientation: 'portrait',
-          start_url: '/',
+          // The installed app opens the door, not the marketing page: `/signin`
+          // redirects straight to the shelf once a session exists.
+          start_url: '/signin',
           scope: '/',
           icons: [
             { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' },

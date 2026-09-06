@@ -14,6 +14,7 @@ import { AddedPage } from '@/pages/AddedPage'
 import { StatsPage } from '@/pages/StatsPage'
 import { YouPage } from '@/pages/YouPage'
 import { SignInPage } from '@/pages/SignInPage'
+import { LandingPage } from '@/pages/LandingPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 import { ScrollToTop } from './ScrollToTop'
 
@@ -40,7 +41,17 @@ function Shell() {
 
 function Gate() {
   const { session, signedIn } = useSession()
-  if (!signedIn || !session) return <SignInPage />
+  if (!signedIn || !session) {
+    // Signed out, the landing page is the front door; everything else asks to
+    // sign in first, so a deep link still ends up at the door and not a 404.
+    return (
+      <Routes>
+        <Route index element={<LandingPage />} />
+        <Route path="signin" element={<SignInPage />} />
+        <Route path="*" element={<Navigate to="/signin" replace />} />
+      </Routes>
+    )
+  }
   return (
     // Keyed on the session so signing out and back in drops the cached books and re-syncs.
     <LibraryProvider key={session.token}>
@@ -63,6 +74,8 @@ function Gate() {
           <Route path="books/:id" element={<BookDetailPage />} />
           <Route path="books/:id/edit" element={<BookFormPage />} />
           <Route path="books/:id/added" element={<AddedPage />} />
+          {/* Once signed in the door and the landing page are behind you. */}
+          <Route path="signin" element={<Navigate to="/" replace />} />
           <Route path="index.html" element={<Navigate to="/" replace />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>

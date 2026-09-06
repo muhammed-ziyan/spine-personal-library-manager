@@ -189,7 +189,7 @@ export function BookForm({ mode, initial, genres, submitLabel, pending, onSubmit
               <InputField tone="quiet" label="Publisher" value={values.publisher} onChange={(e) => update('publisher', e.target.value)} error={errors.publisher} maxLength={LIMITS.publisher} autoComplete="off" />
               <InputField tone="quiet" label="Year" value={values.publicationYear ?? ''} onChange={(e) => update('publicationYear', numberOrNull(e.target.value))} error={errors.publicationYear} inputMode="numeric" placeholder="2019" />
               <InputField tone="quiet" label="Edition" value={values.edition} onChange={(e) => update('edition', e.target.value)} error={errors.edition} maxLength={LIMITS.edition} placeholder="1st" />
-              <InputField tone="quiet" label="Pages" value={values.pages ?? ''} onChange={(e) => update('pages', numberOrNull(e.target.value))} error={errors.pages} inputMode="numeric" placeholder="320" />
+              <InputField tone="quiet" label="Pages" value={values.pages ?? ''} onChange={(e) => update('pages', numberOrNull(e.target.value))} error={errors.pages} inputMode="numeric" placeholder="0" />
             </div>
 
             <div>
