@@ -118,7 +118,10 @@
 
   --page-padding: 20px;
   --content-max: 30rem;
-  --nav-height: 88px;
+  /* Sized to the tab stack it holds — 12px, a 24px icon, its 12px label, and
+     12px under it. The home-indicator inset is added separately by the bar's
+     own padding-bottom, so this must not try to leave room for it. */
+  --nav-height: 64px;
 
   /* ---- Radii ---- */
   --radius-sm: 8px;
