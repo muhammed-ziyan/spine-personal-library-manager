@@ -7,7 +7,7 @@
  * Node can run it directly for the local dev backend (scripts/dev-backend.ts).
  */
 import { readdirSync, readFileSync } from 'node:fs'
-import { createHash } from 'node:crypto'
+import { createHash, createHmac, randomUUID } from 'node:crypto'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import vm from 'node:vm'
@@ -130,6 +130,12 @@ export class MockSpreadsheet {
   getName() {
     return 'Spine Test'
   }
+  getId() {
+    return 'spine-test-spreadsheet'
+  }
+  getSheets() {
+    return Array.from(this.sheets.values())
+  }
   getSheetByName(name: string) {
     return this.sheets.get(name) ?? null
   }
@@ -153,18 +159,34 @@ export interface Backend {
   cache: Map<string, string>
   lock: { acquired: number; released: number; failNext: boolean }
   setup: () => void
+  /** Sign in and return a fresh token. Throws if the credentials are refused. */
+  login: (username?: string, password?: string) => string
+  /** A token for `credentials`, minted on creation. Empty when signIn was disabled. */
+  token: string
+  credentials: { username: string; password: string }
   ctx: vm.Context
 }
 
+export const TEST_CREDENTIALS = { username: 'reader@spine.test', password: 'test-password-1234' }
+
 export interface BackendOptions {
-  /** Optional ACCESS_KEY Script Property. Unset = the deployment URL alone grants access. */
-  accessKey?: string
+  /** Sign-in stored in Script Properties. Defaults to TEST_CREDENTIALS. */
+  credentials?: { username: string; password: string }
+  /**
+   * Leave AUTH_USERNAME/AUTH_PASSWORD unset, as a freshly deployed script is.
+   * The API then refuses everything with NOT_CONFIGURED.
+   */
+  unconfigured?: boolean
 }
 
 export function createBackend(options: BackendOptions = {}): Backend {
   const spreadsheet = new MockSpreadsheet()
   const props = new Map<string, string>()
-  if (options.accessKey) props.set('ACCESS_KEY', options.accessKey)
+  const credentials = options.credentials ?? TEST_CREDENTIALS
+  if (!options.unconfigured) {
+    props.set('AUTH_USERNAME', credentials.username)
+    props.set('AUTH_PASSWORD', credentials.password)
+  }
   const cache = new Map<string, string>()
   const lock = { acquired: 0, released: 0, failNext: false }
 
@@ -213,14 +235,14 @@ export function createBackend(options: BackendOptions = {}): Backend {
     Utilities: {
       DigestAlgorithm: { SHA_256: 'SHA_256' },
       Charset: { UTF_8: 'UTF_8' },
-      computeDigest: (_alg: string, text: string) => {
-        const digest = createHash('sha256').update(text, 'utf8').digest()
-        return Array.from(digest).map((b) => (b > 127 ? b - 256 : b))
-      },
+      computeDigest: (_alg: string, text: string) => signedBytes(createHash('sha256').update(text, 'utf8').digest()),
+      computeHmacSha256Signature: (value: string, key: string) => signedBytes(createHmac('sha256', key).update(value, 'utf8').digest()),
+      getUuid: () => randomUUID(),
       sleep: () => {},
     },
     Logger: { log: () => {} },
-    console,
+    // The backend logs every request; keep the test output quiet.
+    console: { log: () => {}, warn: () => {}, error: () => {} },
     Date,
     JSON,
     Math,
@@ -245,22 +267,41 @@ export function createBackend(options: BackendOptions = {}): Backend {
 
   const handleRequest = ctx.handleRequest_ as (raw: string) => ApiEnvelopeResult
 
+  const handle = (envelope: unknown) => handleRequest(typeof envelope === 'string' ? envelope : JSON.stringify(envelope))
+
   const backend: Backend = {
-    handle: (envelope) => handleRequest(typeof envelope === 'string' ? envelope : JSON.stringify(envelope)),
+    handle,
     spreadsheet,
     props,
     cache,
     lock,
     setup: () => (ctx.setupSpreadsheet as () => void)(),
+    login: (username = credentials.username, password = credentials.password) => {
+      const result = handle({ action: 'login', payload: { username, password } })
+      if (!result.ok) throw new Error(`login failed: ${result.error?.code} ${result.error?.message}`)
+      return (result.data as { token: string }).token
+    },
+    token: '',
+    credentials,
     ctx,
   }
   backend.setup()
+  // Most tests care about the library, not the door; hand them a signed-in session.
+  if (!options.unconfigured) backend.token = backend.login()
   return backend
 }
 
-/** Send one action. `key` is only attached when given, mirroring the real client. */
-export function request(backend: Backend, action: string, payload: unknown = {}, key?: string) {
-  return backend.handle(key === undefined ? { action, payload } : { action, payload, key })
+/** Signed (Java-style) bytes, which is how Apps Script hands back a digest. */
+function signedBytes(buffer: Buffer): number[] {
+  return Array.from(buffer).map((b) => (b > 127 ? b - 256 : b))
+}
+
+/**
+ * Send one action as the signed-in user. Pass `token` explicitly to send a
+ * different one, or `null` to send none at all (as an unauthenticated caller).
+ */
+export function request(backend: Backend, action: string, payload: unknown = {}, token: string | null = backend.token) {
+  return backend.handle(token === null ? { action, payload } : { action, payload, token })
 }
 
 export const sampleBook = {

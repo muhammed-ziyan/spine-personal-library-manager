@@ -8,11 +8,15 @@
  *
  *   npm run dev:backend            # http://localhost:8787
  *
- * Then paste http://localhost:8787 into the app's Connect screen (or set
- * VITE_APPS_SCRIPT_URL in .env to pre-fill it). Development builds accept
- * plain-http localhost/LAN URLs; production builds only talk to script.google.com.
+ * The Vite dev server proxies `/api` here (see vite.config.ts), which is what
+ * VITE_APPS_SCRIPT_URL=/api in `.env` points the app at. Development builds
+ * accept plain-http localhost/LAN URLs; production builds only talk to
+ * script.google.com.
  *
- * Set DEV_ACCESS_KEY to exercise the optional access-key gate.
+ * Sign-in mirrors the deployed script: the credentials live outside the code,
+ * in SPINE_AUTH_USERNAME and SPINE_AUTH_PASSWORD (npm run dev:backend loads
+ * them from the git-ignored `.env`). Without them the backend refuses every
+ * request, exactly as a freshly deployed script does.
  *
  * Data lives in memory and is lost when the process exits.
  */
@@ -20,9 +24,16 @@ import { createServer } from 'node:http'
 import { createBackend } from '../apps-script/__tests__/harness.ts'
 
 const PORT = Number(process.env.PORT || 8787)
-const ACCESS_KEY = process.env.DEV_ACCESS_KEY || ''
+const username = (process.env.SPINE_AUTH_USERNAME || '').trim()
+const password = process.env.SPINE_AUTH_PASSWORD || ''
 
-const backend = createBackend({ accessKey: ACCESS_KEY })
+if (!username || !password) {
+  console.error('Set SPINE_AUTH_USERNAME and SPINE_AUTH_PASSWORD (in .env) before starting the dev backend.')
+  console.error('They are the username and password the app will sign in with, and match what you put in Script Properties when you deploy.')
+  process.exit(1)
+}
+
+const backend = createBackend({ credentials: { username, password } })
 
 const server = createServer((req, res) => {
   // Mirror Apps Script: permissive CORS, POST only, JSON envelope in a text body.
@@ -60,5 +71,5 @@ const server = createServer((req, res) => {
 
 server.listen(PORT, () => {
   console.log(`Spine dev backend listening on http://localhost:${PORT}`)
-  console.log(ACCESS_KEY ? 'Access key required (DEV_ACCESS_KEY is set)' : 'No access key: the URL alone grants access')
+  console.log(`Sign in as ${username} (password from SPINE_AUTH_PASSWORD).`)
 })

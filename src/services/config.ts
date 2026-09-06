@@ -1,21 +1,16 @@
 /**
- * Build-time configuration. Spine has no sign-in: the person using it connects
- * their own Apps Script deployment from the app (see services/connections.ts).
- * The single value here is a convenience for development — it pre-fills the
- * Connect screen so a fresh `npm run dev` doesn't need a paste.
+ * Build-time configuration.
+ *
+ * Spine talks to exactly one Apps Script deployment, set at build time via
+ * VITE_APPS_SCRIPT_URL (an environment variable on Vercel, `.env` locally).
+ * That URL is not a secret — it ships inside the bundle, as any front-end
+ * configuration must. It grants nothing on its own: the backend refuses every
+ * action but `login` without a signed session token.
  */
-export interface AppConfig {
-  /** Optional Apps Script URL to suggest on the Connect screen. Never a secret. */
-  defaultAppsScriptUrl: string
-}
 
 function readEnv(key: string): string {
   const value = import.meta.env[key]
   return typeof value === 'string' ? value.trim() : ''
-}
-
-export const config: AppConfig = {
-  defaultAppsScriptUrl: readEnv('VITE_APPS_SCRIPT_URL'),
 }
 
 /**
@@ -32,4 +27,24 @@ export function isValidAppsScriptUrl(url: string): boolean {
   } catch {
     return false
   }
+}
+
+/**
+ * Where requests go, or null when this build was deployed without
+ * VITE_APPS_SCRIPT_URL — or with an address we refuse to call. The sign-in
+ * screen says so plainly rather than letting the first request fail.
+ */
+export function resolveBackendUrl(): string | null {
+  const configured = readEnv('VITE_APPS_SCRIPT_URL')
+  if (!configured) return null
+  const origin = typeof location === 'undefined' ? undefined : location.origin
+  let absolute: string
+  try {
+    // A relative "/api" is the dev proxy; resolve it against this origin.
+    absolute = new URL(configured, origin).href
+  } catch {
+    return null
+  }
+  if (!isValidAppsScriptUrl(absolute)) return null
+  return absolute.replace(/\/$/, '')
 }

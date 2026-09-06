@@ -12,7 +12,7 @@
     "typecheck": "tsc -b",
     "test": "vitest run",
     "test:watch": "vitest",
-    "dev:backend": "node scripts/dev-backend.ts",
+    "dev:backend": "node --env-file-if-exists=.env scripts/dev-backend.ts",
     "icons": "node scripts/generate-icons.mjs"
   },
   "dependencies": {

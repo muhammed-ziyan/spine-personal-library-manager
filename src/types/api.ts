@@ -2,6 +2,7 @@ import type { Book, BookInput, BookPatch, BookStatus, Genre, LibraryStats } from
 
 /** Every action the Apps Script backend understands. Mirrors apps-script/Code.gs. */
 export type ApiAction =
+  | 'login'
   | 'ping'
   | 'getBooks'
   | 'getBook'
@@ -40,7 +41,24 @@ export interface ApiSuccess<T> {
 
 export type ApiResponse<T> = ApiSuccess<T> | ApiFailure
 
-/** Answer to `ping`: proves a URL (and access key) reach a Spine backend, and names the sheet. */
+export interface LoginParams {
+  username: string
+  password: string
+}
+
+/**
+ * Answer to `login`. The token is signed by the deployment and carries its own
+ * expiry; the password is never echoed back. The library summary rides along so
+ * the app can render straight after signing in.
+ */
+export interface LoginResult extends PingResult {
+  token: string
+  /** Epoch milliseconds. */
+  expiresAt: number
+  username: string
+}
+
+/** Answer to `ping`: proves the stored token still works, and names the sheet. */
 export interface PingResult {
   version: string
   library: string
@@ -98,6 +116,8 @@ export interface ChangeStatusParams {
 }
 
 export interface ApiClient {
+  /** The only action that needs no token — it is how you get one. */
+  login(params: LoginParams): Promise<LoginResult>
   ping(): Promise<PingResult>
   getBooks(params?: GetBooksParams): Promise<GetBooksResult>
   getBook(id: string): Promise<Book>

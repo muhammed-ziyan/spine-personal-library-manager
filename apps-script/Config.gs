@@ -10,10 +10,17 @@ var SPINE_VERSION = '1.0.0';
 /** Script Property keys. */
 var PROP_KEYS = {
   /**
-   * Optional shared secret. When set, every request must carry the same value
-   * in its `key` field; when empty the deployment URL alone grants access.
+   * Sign-in credentials. Both are required: until they are set the API serves
+   * nothing at all. They are compared server-side only and never leave the
+   * script, so the front-end bundle contains no secret.
    */
-  ACCESS_KEY: 'ACCESS_KEY',
+  AUTH_USERNAME: 'AUTH_USERNAME',
+  AUTH_PASSWORD: 'AUTH_PASSWORD',
+  /**
+   * HMAC key for session tokens. Created automatically on first sign-in;
+   * deleting it signs every device out (see resetSessions()).
+   */
+  AUTH_SECRET: 'AUTH_SECRET',
   /** Optional: spreadsheet ID when the script is not container-bound. */
   SPREADSHEET_ID: 'SPREADSHEET_ID',
   /** Monotonic counter for Book IDs. Never edit by hand. */
@@ -36,7 +43,14 @@ var LIMITS = {
   pagesMax: 50000,
   yearMin: 1000,
   requestBytes: 64 * 1024,
-  accessKeyMax: 256,
+  usernameMax: 254,
+  passwordMax: 200,
+  tokenMax: 512,
+  /** How long a sign-in lasts before the app asks again. */
+  sessionDays: 30,
+  /** Failed sign-ins tolerated before the door closes for loginLockoutSeconds. */
+  loginAttempts: 8,
+  loginLockoutSeconds: 15 * 60,
   /** Requests per minute for the whole deployment. Generous for one person, tight for abuse. */
   rateLimitPerMinute: 120,
   /** Maximum page size for getBooks. */
@@ -59,10 +73,6 @@ function getScriptProps_() {
 function getConfigValue_(key) {
   var value = getScriptProps_().getProperty(key);
   return value ? String(value).trim() : '';
-}
-
-function getAccessKey_() {
-  return getConfigValue_(PROP_KEYS.ACCESS_KEY);
 }
 
 /**

@@ -1,21 +1,13 @@
 /**
- * Access control, abuse protection and cell sanitisation.
+ * Abuse protection, digests and cell sanitisation.
  *
- * Trust model
- * ───────────
- * Spine is a personal app: one deployment serves one spreadsheet, and the
- * person who owns the sheet deploys the script themselves. There is no
- * sign-in. The web app is deployed as "execute as me / anyone", which is the
- * only deployment shape a cross-origin PWA can call, so the deployment URL is
- * what grants access — treat it like a password.
- *
- * Optionally the owner sets an ACCESS_KEY Script Property. When present, every
- * request must carry the same value in its `key` field; that lets a leaked URL
- * be locked out again without redeploying.
+ * Who may call what is decided in Auth.gs: the deployment URL is public (it
+ * ships in the front-end bundle), so a signed session token is what grants
+ * access, not the address.
  *
  * CORS: Apps Script always answers with `Access-Control-Allow-Origin: *` and
  * cannot handle pre-flight requests. We cannot narrow that header, so we
- * compensate with the key check above, a body-size cap and rate limiting.
+ * compensate with the token check, a body-size cap and rate limiting.
  */
 
 /** Thrown for any request that should be rejected with a specific API code. */
@@ -24,22 +16,6 @@ function apiError_(code, message, details) {
   err.apiCode = code;
   err.details = details;
   return err;
-}
-
-/**
- * Check the optional access key on a request envelope.
- * Throws UNAUTHORIZED when a key is configured and the request's key does not match.
- */
-function authorize_(envelope) {
-  var expected = getAccessKey_();
-  if (!expected) return;
-  var supplied = envelope.key;
-  if (typeof supplied !== 'string' || supplied.length === 0 || supplied.length > LIMITS.accessKeyMax) {
-    throw apiError_('UNAUTHORIZED', 'This library needs an access key.');
-  }
-  if (!safeEqual_(supplied, expected)) {
-    throw apiError_('UNAUTHORIZED', 'The access key is not right for this library.');
-  }
 }
 
 /** Constant-time string comparison over fixed-length digests. */
@@ -51,7 +27,7 @@ function safeEqual_(a, b) {
   return diff === 0;
 }
 
-/** Simple fixed-window rate limit for the whole deployment (there is no per-user identity). */
+/** Simple fixed-window rate limit for the whole deployment (one person, one library). */
 function enforceRateLimit_() {
   var cache = CacheService.getScriptCache();
   var minute = Math.floor(Date.now() / 60000);
@@ -63,12 +39,21 @@ function enforceRateLimit_() {
   }
 }
 
-function sha256Hex_(text) {
-  var bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, text, Utilities.Charset.UTF_8);
+/** Apps Script digests come back as signed bytes; render them as lower-case hex. */
+function bytesToHex_(bytes) {
   return bytes.map(function (b) {
     var v = (b + 256) % 256;
     return (v < 16 ? '0' : '') + v.toString(16);
   }).join('');
+}
+
+function sha256Hex_(text) {
+  return bytesToHex_(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, text, Utilities.Charset.UTF_8));
+}
+
+/** HMAC-SHA256 of `value` under the current session signing key (see Auth.gs). */
+function hmacHex_(value) {
+  return bytesToHex_(Utilities.computeHmacSha256Signature(value, signingKey_()));
 }
 
 /* ───────────── Formula-injection protection ───────────── */

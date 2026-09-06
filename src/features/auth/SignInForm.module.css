@@ -1,0 +1,56 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+}
+
+/* The reveal button sits inside the field, so the input reserves room for it. */
+.password {
+  position: relative;
+}
+
+.passwordInput {
+  padding-right: 48px;
+  /* A revealed password must not be re-flowed by proportional digits. */
+  font-variant-numeric: tabular-nums;
+}
+
+.reveal {
+  position: absolute;
+  right: 6px;
+  /* Clear the 13px label plus its 5px gap, then centre on the 52px input. */
+  top: calc(18px + 26px);
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-neutral-700);
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out);
+}
+
+.reveal:hover {
+  color: var(--color-text);
+  background: color-mix(in srgb, var(--color-text) 8%, transparent);
+}
+
+.reveal:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* Same tinted-fill treatment as the status pills; the palette never goes red. */
+.error {
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: var(--color-accent-200);
+  color: var(--color-accent-900);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.45;
+}

@@ -1,13 +1,13 @@
 import { Link } from 'react-router-dom'
 import { Avatar, BookCard, BookCardSkeleton, Button, EmptyState, ErrorState, Logo, PageHeader, Skeleton } from '@/components'
-import { useConnection } from '@/hooks/useConnection'
+import { useSession } from '@/hooks/useSession'
 import { useLibrary } from '@/hooks/useLibrary'
 import { describeError } from '@/services/api'
 import styles from './HomePage.module.css'
 
 export function HomePage() {
   const { books, stats, state, error, refresh } = useLibrary()
-  const { active } = useConnection()
+  const { session } = useSession()
 
   const loading = state === 'loading' || state === 'idle'
   const total = stats?.total ?? books.length
@@ -23,7 +23,7 @@ export function HomePage() {
       leading={<Logo />}
       actions={
         <Link to="/you" className={styles.avatarLink} aria-label="You">
-          <Avatar name={active?.label} />
+          <Avatar name={session?.library} />
         </Link>
       }
     />

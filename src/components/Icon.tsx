@@ -32,6 +32,9 @@ export type IconName =
   | 'tag'
   | 'logout'
   | 'copy'
+  | 'lock'
+  | 'eye'
+  | 'eye-off'
 
 /** Lucide outlines, drawn at the mockup's 2.75 stroke. */
 const paths: Record<IconName, string> = {
@@ -66,6 +69,9 @@ const paths: Record<IconName, string> = {
   tag: 'M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z M7 7h.01',
   logout: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4 M16 17l5-5-5-5 M21 12H9',
   copy: 'M8 8h12v12H8z M16 8V4H4v12h4',
+  lock: 'M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z M7 11V7a5 5 0 0 1 10 0v4',
+  eye: 'M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0 M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6',
+  'eye-off': 'M10.73 5.08A10.43 10.43 0 0 1 12 5c4.64 0 8.57 2.72 9.94 6.65a1 1 0 0 1 0 .7 10.9 10.9 0 0 1-2.32 3.6 M6.61 6.61A13.5 13.5 0 0 0 2.06 11.65a1 1 0 0 0 0 .7A10.75 10.75 0 0 0 12 19a9.7 9.7 0 0 0 4.32-1 M14.12 14.12a3 3 0 1 1-4.24-4.24 M2 2l20 20',
 }
 
 interface IconProps extends Omit<SVGProps<SVGSVGElement>, 'name'> {

@@ -2,7 +2,9 @@
  * Spine API — HTTP entry points and request routing.
  *
  * Request envelope (POST body, text/plain, JSON):
- *   { "action": "getBooks", "payload": { ... }, "key": "<access key, only if the owner set one>" }
+ *   { "action": "getBooks", "payload": { ... }, "token": "<session token from login>" }
+ *
+ * `login` is the only action that needs no token; see Auth.gs.
  *
  * Response envelope:
  *   { "ok": true,  "data": ... }
@@ -12,6 +14,7 @@
 /** Action → handler. Nothing outside this table is reachable from the network. */
 function actionHandlers_() {
   return {
+    login: login_,
     ping: ping_,
     getBooks: getBooks_,
     getBook: getBook_,
@@ -28,6 +31,7 @@ function actionHandlers_() {
 
 function doPost(e) {
   var raw = e && e.postData && e.postData.contents;
+  console.log('doPost: received ' + (raw ? raw.length + ' bytes' : 'no body'));
   return jsonOutput_(handleRequest_(raw));
 }
 
@@ -57,24 +61,29 @@ function handleRequest_(rawBody) {
     var handlers = actionHandlers_();
     var action = envelope.action;
     if (typeof action !== 'string' || !handlers.hasOwnProperty(action)) {
+      console.warn('handleRequest_: unknown action ' + JSON.stringify(action));
       return failure_('BAD_REQUEST', 'Unknown action.');
     }
+    console.log('handleRequest_: action=' + action + ' token=' + (envelope.token ? 'present' : 'absent'));
 
-    // Check the optional access key before touching any data.
-    authorize_(envelope);
+    // Establish who is calling before touching any data — or any payload.
+    var session = authorize_(envelope, action);
+    if (session) console.log('handleRequest_: authorised as ' + session.username);
     enforceRateLimit_();
 
     var payload = envelope.payload === undefined ? {} : envelope.payload;
     if (!isPlainObject_(payload)) return failure_('BAD_REQUEST', 'Malformed payload.');
 
     var data = handlers[action](payload);
+    console.log('handleRequest_: ' + action + ' ok');
     return { ok: true, data: data === undefined ? null : data };
   } catch (err) {
     if (err && err.apiCode) {
+      console.warn('handleRequest_: rejected with ' + err.apiCode + ': ' + err.message);
       return failure_(err.apiCode, err.message, err.details);
     }
     // Unexpected failure: log the detail server-side, never return it.
-    Logger.log('Unhandled error: ' + (err && err.stack ? err.stack : err));
+    console.error('handleRequest_: unhandled error: ' + (err && err.stack ? err.stack : err));
     return failure_('SERVER_ERROR', 'Something went wrong. Please try again.');
   }
 }
@@ -86,13 +95,21 @@ function failure_(code, message, details) {
 }
 
 /**
- * Connection check used by the app when a library is first connected: confirms
- * the URL (and access key, if any) reach a Spine backend and names the sheet.
+ * Session check, run on every app launch that starts with a stored token: it
+ * proves the token is still good and refreshes the library summary. An expired
+ * or revoked token fails in authorize_ before this ever runs.
  */
 function ping_() {
+  console.log('ping_: SPREADSHEET_ID property ' + (getConfigValue_(PROP_KEYS.SPREADSHEET_ID) ? 'set' : 'not set (using bound sheet)'));
+  var ss = getSpreadsheet_();
+  console.log('ping_: opened spreadsheet "' + ss.getName() + '" (' + ss.getId() + ')');
+  var tabs = ss.getSheets().map(function (sheet) { return sheet.getName(); });
+  console.log('ping_: tabs present: ' + JSON.stringify(tabs));
+  var books = readBookColumn_('id').length;
+  console.log('ping_: Books tab has ' + books + ' row(s)');
   return {
     version: SPINE_VERSION,
-    library: getSpreadsheet_().getName(),
-    books: readBookColumn_('id').length,
+    library: ss.getName(),
+    books: books,
   };
 }

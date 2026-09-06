@@ -1,7 +1,7 @@
 import { Suspense, lazy } from 'react'
 import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
 import { BottomNavigation, InlineSpinner, Splash, ToastViewport } from '@/components'
-import { ConnectionProvider, useConnection } from '@/hooks/useConnection'
+import { SessionProvider, useSession } from '@/hooks/useSession'
 import { LibraryProvider, useLibrary } from '@/hooks/useLibrary'
 import { PreferencesProvider } from '@/hooks/usePreferences'
 import { ToastProvider } from '@/hooks/useToast'
@@ -13,7 +13,7 @@ import { BookDetailPage } from '@/pages/BookDetailPage'
 import { AddedPage } from '@/pages/AddedPage'
 import { StatsPage } from '@/pages/StatsPage'
 import { YouPage } from '@/pages/YouPage'
-import { ConnectPage } from '@/pages/ConnectPage'
+import { SignInPage } from '@/pages/SignInPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 import { ScrollToTop } from './ScrollToTop'
 
@@ -39,11 +39,11 @@ function Shell() {
 }
 
 function Gate() {
-  const { active } = useConnection()
-  if (!active) return <ConnectPage />
+  const { session, signedIn } = useSession()
+  if (!signedIn || !session) return <SignInPage />
   return (
-    // Keyed on the connection so switching libraries drops the cached books and re-syncs.
-    <LibraryProvider key={active.id}>
+    // Keyed on the session so signing out and back in drops the cached books and re-syncs.
+    <LibraryProvider key={session.token}>
       <Routes>
         <Route element={<Shell />}>
           <Route index element={<HomePage />} />
@@ -77,9 +77,9 @@ export function App() {
       <BrowserRouter>
         <ScrollToTop />
         <ToastProvider>
-          <ConnectionProvider>
+          <SessionProvider>
             <Gate />
-          </ConnectionProvider>
+          </SessionProvider>
         </ToastProvider>
       </BrowserRouter>
     </PreferencesProvider>
