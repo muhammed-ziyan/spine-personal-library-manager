@@ -89,11 +89,21 @@ describe('api client', () => {
     vi.useRealTimers()
   })
 
-  it('refuses to run without configuration or with a non-Apps-Script URL', async () => {
+  it('refuses to run without configuration', async () => {
     config.appsScriptUrl = ''
     await expect(createApiClient(vi.fn<Transport>()).getGenres()).rejects.toMatchObject({ code: 'NOT_CONFIGURED' })
-    config.appsScriptUrl = 'https://evil.example/exec'
-    await expect(createApiClient(vi.fn<Transport>()).getGenres()).rejects.toMatchObject({ code: 'NOT_CONFIGURED' })
+  })
+
+  it('only talks to script.google.com in production builds', async () => {
+    vi.stubEnv('DEV', false)
+    try {
+      config.appsScriptUrl = 'https://evil.example/exec'
+      await expect(createApiClient(vi.fn<Transport>()).getGenres()).rejects.toMatchObject({ code: 'NOT_CONFIGURED' })
+      config.appsScriptUrl = 'http://localhost:8787'
+      await expect(createApiClient(vi.fn<Transport>()).getGenres()).rejects.toMatchObject({ code: 'NOT_CONFIGURED' })
+    } finally {
+      vi.unstubAllEnvs()
+    }
   })
 
   it('describes errors in plain language', () => {
