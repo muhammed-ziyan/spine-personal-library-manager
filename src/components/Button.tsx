@@ -4,7 +4,8 @@ import { Icon, type IconName } from './Icon'
 import styles from './Button.module.css'
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'subtle'
-type Size = 'sm' | 'md' | 'lg'
+/** sm 44px · md 52px · lg 58px · xl 60px, as on the mockup screens. */
+type Size = 'sm' | 'md' | 'lg' | 'xl'
 
 interface BaseProps {
   variant?: Variant
@@ -26,12 +27,14 @@ function classes({ variant = 'primary', size = 'md', block, loading, className }
     .join(' ')
 }
 
+const iconSize: Record<Size, number> = { sm: 18, md: 20, lg: 22, xl: 22 }
+
 export const Button = forwardRef<HTMLButtonElement, ButtonProps | LinkProps>(function Button(props, ref) {
-  const { icon, iconRight, children, loading } = props
+  const { icon, iconRight, children, loading, size = 'md' } = props
   const content = (
     <>
       {loading && <span className={styles.spinner} aria-hidden="true" />}
-      {icon && !loading && <Icon name={icon} size={20} />}
+      {icon && !loading && <Icon name={icon} size={iconSize[size]} />}
       {children && <span className={styles.label}>{children}</span>}
       {iconRight && <Icon name={iconRight} size={18} />}
     </>
@@ -58,13 +61,28 @@ interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   icon: IconName
   label: string
   size?: number
-  tone?: 'default' | 'surface' | 'danger'
+  /** surface: 40px cream circle · dim: translucent circle for dark screens · plain: no fill · large: 52px surface circle */
+  tone?: 'surface' | 'dim' | 'plain' | 'large'
 }
 
-export function IconButton({ icon, label, size = 22, tone = 'default', className, ...rest }: IconButtonProps) {
+/** Round icon-only control (back, close, more, torch…). */
+export function IconButton({ icon, label, size = 20, tone = 'surface', className, ...rest }: IconButtonProps) {
   return (
     <button type="button" aria-label={label} title={label} className={[styles.iconButton, styles[`tone-${tone}`], className].filter(Boolean).join(' ')} {...rest}>
       <Icon name={icon} size={size} />
+    </button>
+  )
+}
+
+interface TextButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+  tone?: 'accent' | 'muted' | 'danger'
+}
+
+/** Bare text action ("Cancel", "See all", "Reset", "Delete this book"). */
+export function TextButton({ tone = 'accent', className, children, ...rest }: TextButtonProps) {
+  return (
+    <button type="button" className={[styles.textButton, styles[`text-${tone}`], className].filter(Boolean).join(' ')} {...rest}>
+      {children}
     </button>
   )
 }

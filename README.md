@@ -95,7 +95,7 @@ VITE_GOOGLE_CLIENT_ID=local-dev
 
 With that client ID, development builds show a *"Use local development session"* button instead of Google sign-in. This path is dead code in production builds, localhost URLs are rejected outside development, and a deployed backend rejects the unsigned token anyway. Data is lost when the process exits.
 
-To test the scanner on a phone, run `npm run dev -- --host` and open the LAN URL. Browsers only expose the camera on secure origins, so use `https://` or `localhost`; the simplest route is to deploy the built `dist/` folder to any static host (GitHub Pages, Netlify, Cloudflare Pages — all free) and add that origin to your OAuth client.
+To test the scanner on a phone, run `npm run dev` and open the `https://<your-LAN-IP>:5173` URL it prints. Browsers only expose the camera on secure origins, so the dev server serves a self-signed certificate — accept the browser's one-time warning (Advanced → Proceed). Point `VITE_APPS_SCRIPT_URL` at `/api` so requests to the local dev backend go through the dev server's proxy instead of being blocked as mixed content (set `DEV_BACKEND_URL` if the backend isn't on port 8787). Alternatively deploy the built `dist/` folder to any static host (GitHub Pages, Netlify, Cloudflare Pages — all free) and add that origin to your OAuth client.
 
 ## Google Apps Script setup
 

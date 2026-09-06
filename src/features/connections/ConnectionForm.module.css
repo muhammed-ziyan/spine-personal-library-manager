@@ -1,0 +1,15 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+}
+
+.error {
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: var(--color-danger-100, #ffe1d0);
+  color: var(--color-danger-900, #643312);
+  font-size: 13px;
+  line-height: 1.45;
+}

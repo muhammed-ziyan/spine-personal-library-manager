@@ -1,19 +1,19 @@
 /**
  * Spine backend configuration.
  *
- * Nothing in this file is secret. Deployment-specific values (which Google
- * account may use the API, the OAuth client ID that issued the tokens) live in
- * Script Properties — see README → "Google Apps Script setup".
+ * Nothing in this file is secret. Deployment-specific values live in Script
+ * Properties — see README → "Google Apps Script setup".
  */
 
 var SPINE_VERSION = '1.0.0';
 
 /** Script Property keys. */
 var PROP_KEYS = {
-  /** OAuth 2.0 Web client ID the frontend uses. Tokens must be minted for it. */
-  GOOGLE_CLIENT_ID: 'GOOGLE_CLIENT_ID',
-  /** Comma-separated list of Google account emails allowed to use the API. */
-  ALLOWED_EMAILS: 'ALLOWED_EMAILS',
+  /**
+   * Optional shared secret. When set, every request must carry the same value
+   * in its `key` field; when empty the deployment URL alone grants access.
+   */
+  ACCESS_KEY: 'ACCESS_KEY',
   /** Optional: spreadsheet ID when the script is not container-bound. */
   SPREADSHEET_ID: 'SPREADSHEET_ID',
   /** Monotonic counter for Book IDs. Never edit by hand. */
@@ -36,7 +36,8 @@ var LIMITS = {
   pagesMax: 50000,
   yearMin: 1000,
   requestBytes: 64 * 1024,
-  /** Requests per minute per account. Generous for a personal app, tight for abuse. */
+  accessKeyMax: 256,
+  /** Requests per minute for the whole deployment. Generous for one person, tight for abuse. */
   rateLimitPerMinute: 120,
   /** Maximum page size for getBooks. */
   pageMax: 500,
@@ -60,15 +61,8 @@ function getConfigValue_(key) {
   return value ? String(value).trim() : '';
 }
 
-function getAllowedEmails_() {
-  return getConfigValue_(PROP_KEYS.ALLOWED_EMAILS)
-    .split(',')
-    .map(function (e) { return e.trim().toLowerCase(); })
-    .filter(Boolean);
-}
-
-function getGoogleClientId_() {
-  return getConfigValue_(PROP_KEYS.GOOGLE_CLIENT_ID);
+function getAccessKey_() {
+  return getConfigValue_(PROP_KEYS.ACCESS_KEY);
 }
 
 /**

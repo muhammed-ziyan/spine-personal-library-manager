@@ -1,89 +1,84 @@
+.add {
+  gap: 22px;
+}
+
 .options {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: 10px;
 }
 
 .option {
   display: flex;
   align-items: center;
-  gap: var(--space-4);
+  gap: 14px;
   width: 100%;
-  padding: var(--space-5);
+  padding: 16px 18px;
   text-align: left;
+  border-radius: var(--radius-tile);
   background: var(--color-surface);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-sm), inset 0 0 0 1px var(--color-border);
+  color: var(--color-text);
   transition:
     transform var(--duration-fast) var(--ease-out),
-    box-shadow var(--duration-fast) var(--ease-out);
-}
-
-.option:hover {
-  box-shadow: var(--shadow-md), inset 0 0 0 1px var(--color-border);
+    filter var(--duration-fast) var(--ease-out);
 }
 
 .option:active {
-  transform: scale(0.985);
+  transform: scale(0.98);
+  filter: brightness(0.96);
 }
 
 .primary {
   background: var(--color-accent);
   color: var(--color-on-accent);
-  box-shadow: var(--shadow-md);
-}
-
-.primary .description {
-  color: rgba(255, 248, 243, 0.8);
 }
 
 .primary .iconWrap {
-  background: rgba(255, 255, 255, 0.16);
+  background: rgba(245, 234, 216, 0.18);
   color: inherit;
 }
 
+.primary .description,
 .primary .chevron {
-  color: rgba(255, 248, 243, 0.7);
+  color: inherit;
+  opacity: 0.85;
 }
 
 .iconWrap {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 3.5rem;
-  height: 3.5rem;
-  border-radius: var(--radius-lg);
-  background: var(--color-accent-soft);
-  color: var(--color-accent-soft-ink);
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--color-accent-200);
+  color: var(--color-accent-900);
 }
 
 .text {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
-  min-width: 0;
 }
 
 .title {
-  font-family: var(--font-display);
-  font-size: var(--text-lg);
+  font-size: 16px;
   font-weight: 600;
 }
 
 .description {
-  font-size: var(--text-sm);
-  color: var(--color-ink-secondary);
+  font-size: 13px;
+  color: var(--color-neutral-600);
 }
 
 .chevron {
-  color: var(--color-ink-faint);
-  flex-shrink: 0;
+  flex: none;
+  color: var(--color-neutral-500);
 }
 
 .isbnForm {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: 12px;
 }

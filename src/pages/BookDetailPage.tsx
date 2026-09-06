@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { BookCover, Button, ErrorState, Icon, InlineSpinner, Modal, OptionList, PageHeader, Rating, StatusChip } from '@/components'
+import { BookCover, Button, ErrorState, Icon, IconButton, InlineSpinner, Modal, OptionList, PageHeader, Rating, StatusChip } from '@/components'
 import { useLibrary } from '@/hooks/useLibrary'
 import { useToast } from '@/hooks/useToast'
 import { ApiError, describeError, toApiError } from '@/services/api'
@@ -18,9 +18,10 @@ export function BookDetailPage() {
   const cached = getBook(id)
   const [loadError, setLoadError] = useState<ApiError | null>(null)
   const [statusOpen, setStatusOpen] = useState(false)
+  const [moreOpen, setMoreOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  const [infoOpen, setInfoOpen] = useState(false)
+  const [infoOpen, setInfoOpen] = useState(true)
 
   useEffect(() => {
     if (cached || loadError) return
@@ -41,7 +42,7 @@ export function BookDetailPage() {
     if (!book || book.status === status) return
     try {
       await changeStatus(book.id, status)
-      toast.show('Status updated', 'success')
+      toast.show(`Marked ${status}`, 'success')
     } catch (err) {
       toast.show(describeError(err), 'danger')
     }
@@ -74,7 +75,7 @@ export function BookDetailPage() {
   if (loadError) {
     return (
       <main className="page">
-        <PageHeader title="Book" back="/library" />
+        <PageHeader back="/library" />
         <ErrorState title="Couldn't open this book" message={describeError(loadError)} onRetry={() => setLoadError(null)} />
       </main>
     )
@@ -83,119 +84,157 @@ export function BookDetailPage() {
   if (!book) {
     return (
       <main className="page">
-        <PageHeader title="Book" back="/library" />
-        <InlineSpinner label="Loading book" />
+        <PageHeader back="/library" />
+        <div className={styles.loading}>
+          <InlineSpinner label="Loading book" />
+        </div>
       </main>
     )
   }
 
-  const details: Array<[string, string]> = [
+  const details: Array<[string, string, boolean?]> = [
     ['ISBN', book.isbn ? formatIsbn(book.isbn) : '—'],
     ['Publisher', book.publisher || '—'],
     ['Published', book.publicationYear ? String(book.publicationYear) : '—'],
     ['Edition', book.edition || '—'],
     ['Pages', book.pages ? String(book.pages) : '—'],
     ['Format', book.format || '—'],
-    ['Added', formatDate(book.dateAdded)],
-    ['Started', book.dateStarted ? formatDate(book.dateStarted) : '—'],
-    ['Finished', book.dateFinished ? formatDate(book.dateFinished) : '—'],
+    ['Added', formatDate(book.dateAdded), true],
   ]
+  if (book.dateStarted) details.push(['Started', formatDate(book.dateStarted)])
+  if (book.dateFinished) details.push(['Finished', formatDate(book.dateFinished)])
 
   return (
-    <main className="page">
-      <PageHeader back="/library" actions={<Button to={`/books/${book.id}/edit`} variant="subtle" size="sm" icon="pencil">Edit</Button>} />
+    <main className={['page', 'page--footer', styles.detail].join(' ')}>
+      <PageHeader back="/library" actions={<IconButton icon="more" label="More actions" onClick={() => setMoreOpen(true)} aria-haspopup="dialog" />} />
 
       <section className={styles.hero}>
-        <BookCover title={book.title} author={book.author} coverUrl={book.coverUrl} size="lg" />
-        <h1 className={styles.title}>{book.title}</h1>
-        <p className={styles.author}>{book.author}</p>
-        {(book.genre || book.language) && <p className={styles.meta}>{[book.genre, book.language].filter(Boolean).join(' · ')}</p>}
+        <span className={styles.halo} aria-hidden="true" />
+        <BookCover title={book.title} author={book.author} coverUrl={book.coverUrl} variant="hero" />
       </section>
 
-      <section className={styles.quick} aria-label="Status and rating">
-        <button type="button" className={styles.statusButton} onClick={() => setStatusOpen(true)} aria-haspopup="dialog">
-          <span className={styles.quickLabel}>Status</span>
-          <span className={styles.statusValue}>
-            <StatusChip status={book.status} size="md" />
-            <Icon name="chevron-down" size={18} />
-          </span>
-        </button>
-        <div className={styles.ratingBlock}>
-          <span className={styles.quickLabel}>Your rating</span>
-          <Rating value={book.rating} onChange={(r) => void onRatingChange(r)} size="md" />
+      <div className={styles.content}>
+        <div className={styles.heading}>
+          <h1 className={styles.title}>{book.title}</h1>
+          <p className={styles.author}>{book.author}</p>
         </div>
-      </section>
 
-      {book.notes && (
-        <section className="section" aria-labelledby="notes-heading">
-          <h2 id="notes-heading" className="section-title">
-            Notes
-          </h2>
-          <p className={styles.notes}>{book.notes}</p>
+        <div className={styles.tiles}>
+          <div className={styles.tile}>
+            <span className={styles.tileLabel}>Genre</span>
+            <span className={styles.tileValue}>{book.genre || '—'}</span>
+          </div>
+          <div className={styles.tile}>
+            <span className={styles.tileLabel}>Language</span>
+            <span className={styles.tileValue}>{book.language || '—'}</span>
+          </div>
+          <button type="button" className={[styles.tile, styles.tileButton].join(' ')} onClick={() => setStatusOpen(true)} aria-haspopup="dialog" aria-label={`Status: ${book.status}. Change`}>
+            <span className={styles.tileLabel}>Status</span>
+            <span className={styles.tileChip}>
+              <StatusChip status={book.status} size="md" caret />
+            </span>
+          </button>
+          <div className={styles.tile}>
+            <span className={styles.tileLabel}>Rating</span>
+            <span className={styles.tileRating}>
+              <Rating value={book.rating} onChange={(r) => void onRatingChange(r)} size="md" label="Your rating" />
+            </span>
+            <span className={styles.tileCaption}>{book.rating ? `${book.rating} of 5` : 'Not rated'}</span>
+          </div>
+        </div>
+
+        <section className={styles.info}>
+          <button type="button" className={styles.infoToggle} onClick={() => setInfoOpen((v) => !v)} aria-expanded={infoOpen} aria-controls="book-info">
+            <span>Book information</span>
+            <Icon name={infoOpen ? 'chevron-up' : 'chevron-down'} size={18} />
+          </button>
+          {infoOpen && (
+            <dl id="book-info" className={styles.details}>
+              {details.map(([label, value, wide]) => (
+                <div key={label} className={[styles.detail, wide && styles.detailWide].filter(Boolean).join(' ')}>
+                  <dt>{label}</dt>
+                  <dd>{value}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
         </section>
-      )}
 
-      {otherCopies.length > 0 && (
-        <section className="section" aria-labelledby="copies-heading">
-          <h2 id="copies-heading" className="section-title">
-            Other copies you own
-          </h2>
-          <ul className={styles.copies}>
-            {otherCopies.map((copy) => (
-              <li key={copy.id}>
-                <Button to={`/books/${copy.id}`} variant="secondary" size="sm" iconRight="chevron-right">
+        {otherCopies.length > 0 && (
+          <section className={styles.copies} aria-labelledby="copies-heading">
+            <h2 id="copies-heading" className="section-title--sm section-title">
+              Other copies you own
+            </h2>
+            <div className={styles.copyList}>
+              {otherCopies.map((copy) => (
+                <Button key={copy.id} to={`/books/${copy.id}`} variant="secondary" size="sm" iconRight="chevron-right">
                   {copy.format || 'Copy'} · {copy.status}
                 </Button>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      <section className="section">
-        <button type="button" className={styles.infoToggle} onClick={() => setInfoOpen((v) => !v)} aria-expanded={infoOpen} aria-controls="book-info">
-          <span>Book information</span>
-          <Icon name="chevron-down" size={18} className={infoOpen ? styles.chevronOpen : undefined} />
-        </button>
-        {infoOpen && (
-          <dl id="book-info" className={styles.details}>
-            {details.map(([label, value]) => (
-              <div key={label} className={styles.detailRow}>
-                <dt>{label}</dt>
-                <dd>{value}</dd>
-              </div>
-            ))}
-          </dl>
+              ))}
+            </div>
+          </section>
         )}
-      </section>
 
-      <section className={styles.actions} aria-label="Book actions">
-        <Button to={`/books/${book.id}/edit`} variant="secondary" size="lg" block icon="pencil">
+        {book.notes && (
+          <section className={styles.notes} aria-labelledby="notes-heading">
+            <h2 id="notes-heading" className="section-title section-title--sm">
+              Notes
+            </h2>
+            <p className={styles.notesText}>{book.notes}</p>
+          </section>
+        )}
+      </div>
+
+      <div className="page-footer">
+        <Button to={`/books/${book.id}/edit`} size="md" className={styles.editButton}>
           Edit Book
         </Button>
-        <Button variant="ghost" size="lg" block icon="trash" onClick={() => setDeleteOpen(true)} className={styles.deleteButton}>
-          Delete Book
-        </Button>
-      </section>
+        <Button variant="secondary" icon="trash" onClick={() => setDeleteOpen(true)} className={styles.trashButton} aria-label="Delete book" />
+      </div>
 
       <Modal open={statusOpen} onClose={() => setStatusOpen(false)} title="Reading status">
         <OptionList value={book.status} options={BOOK_STATUSES.map((s) => ({ value: s, label: s }))} onSelect={(s) => void onStatusChange(s)} />
       </Modal>
 
+      <Modal open={moreOpen} onClose={() => setMoreOpen(false)} title={book.title}>
+        <div className={styles.moreActions}>
+          <Button variant="subtle" icon="pencil" block to={`/books/${book.id}/edit`} onClick={() => setMoreOpen(false)}>
+            Edit book
+          </Button>
+          {book.isbn && (
+            <Button variant="subtle" icon="copy" block to={`/books/new?isbn=${book.isbn}&copy=1`} onClick={() => setMoreOpen(false)}>
+              Add another copy
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            icon="trash"
+            block
+            className={styles.deleteAction}
+            onClick={() => {
+              setMoreOpen(false)
+              setDeleteOpen(true)
+            }}
+          >
+            Delete book
+          </Button>
+        </div>
+      </Modal>
+
       <Modal
         open={deleteOpen}
         onClose={() => !deleting && setDeleteOpen(false)}
-        title="Delete this book?"
-        description="This will remove the book from your library."
         variant="dialog"
-        hideClose
+        icon="trash"
+        title="Delete this book?"
+        description={`“${book.title}” will be removed from your library and your sheet. Your notes go with it.`}
         actions={
           <>
-            <Button variant="danger" onClick={() => void onDelete()} loading={deleting}>
-              Delete
+            <Button variant="danger" onClick={() => void onDelete()} loading={deleting} block>
+              Delete Book
             </Button>
-            <Button variant="secondary" onClick={() => setDeleteOpen(false)} disabled={deleting}>
-              Cancel
+            <Button variant="secondary" onClick={() => setDeleteOpen(false)} disabled={deleting} block>
+              Keep It
             </Button>
           </>
         }

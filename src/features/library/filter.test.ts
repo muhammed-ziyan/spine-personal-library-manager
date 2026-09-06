@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Book } from '@/types'
-import { DEFAULT_FILTERS, applyFilters, distinctValues } from './filter'
+import { DEFAULT_FILTERS, applyFilters, distinctValues, isFiltered } from './filter'
 
 function book(overrides: Partial<Book>): Book {
   return {
@@ -38,16 +38,19 @@ describe('applyFilters', () => {
     expect(applyFilters(books, DEFAULT_FILTERS).map((b) => b.id)).toEqual(['BK-00003', 'BK-00002', 'BK-00001'])
   })
 
-  it('searches title, author and ISBN', () => {
+  it('searches title, author, genre, language and ISBN', () => {
     expect(applyFilters(books, { ...DEFAULT_FILTERS, query: 'morrison' }).map((b) => b.title)).toEqual(['Beloved'])
     expect(applyFilters(books, { ...DEFAULT_FILTERS, query: 'DUNE' }).map((b) => b.title)).toEqual(['Dune'])
     expect(applyFilters(books, { ...DEFAULT_FILTERS, query: '978-0441' }).map((b) => b.title)).toEqual(['Dune'])
+    expect(applyFilters(books, { ...DEFAULT_FILTERS, query: 'sci' }).map((b) => b.title)).toEqual(['Dune'])
+    expect(applyFilters(books, { ...DEFAULT_FILTERS, query: 'malayalam' }).map((b) => b.title)).toEqual(['Aadujeevitham'])
   })
 
-  it('filters by status, genre and language', () => {
+  it('filters by status, genres and languages', () => {
     expect(applyFilters(books, { ...DEFAULT_FILTERS, status: 'Reading' })).toHaveLength(1)
-    expect(applyFilters(books, { ...DEFAULT_FILTERS, genre: 'Fiction' }).map((b) => b.title)).toEqual(['Aadujeevitham'])
-    expect(applyFilters(books, { ...DEFAULT_FILTERS, language: 'Malayalam' })).toHaveLength(1)
+    expect(applyFilters(books, { ...DEFAULT_FILTERS, genres: ['Fiction'] }).map((b) => b.title)).toEqual(['Aadujeevitham'])
+    expect(applyFilters(books, { ...DEFAULT_FILTERS, genres: ['Fiction', 'Science Fiction'] }).map((b) => b.title)).toEqual(['Aadujeevitham', 'Dune'])
+    expect(applyFilters(books, { ...DEFAULT_FILTERS, languages: ['Malayalam'] })).toHaveLength(1)
   })
 
   it('sorts by title, author and rating in either direction', () => {
@@ -60,6 +63,15 @@ describe('applyFilters', () => {
     const copy = [...books]
     applyFilters(books, { ...DEFAULT_FILTERS, sort: 'title', direction: 'asc' })
     expect(books).toEqual(copy)
+  })
+})
+
+describe('isFiltered', () => {
+  it('ignores sort but notices any narrowing', () => {
+    expect(isFiltered(DEFAULT_FILTERS)).toBe(false)
+    expect(isFiltered({ ...DEFAULT_FILTERS, sort: 'title', direction: 'asc' })).toBe(false)
+    expect(isFiltered({ ...DEFAULT_FILTERS, genres: ['Fiction'] })).toBe(true)
+    expect(isFiltered({ ...DEFAULT_FILTERS, query: 'x' })).toBe(true)
   })
 })
 

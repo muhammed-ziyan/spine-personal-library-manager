@@ -4,8 +4,10 @@ import { normalizeIsbn } from '@/utils/isbn'
 export interface LibraryFilters {
   query: string
   status: BookStatus | null
-  genre: string | null
-  language: string | null
+  /** Any of these genres matches; empty means all. */
+  genres: string[]
+  /** Any of these languages matches; empty means all. */
+  languages: string[]
   sort: SortKey
   direction: 'asc' | 'desc'
 }
@@ -13,17 +15,17 @@ export interface LibraryFilters {
 export const DEFAULT_FILTERS: LibraryFilters = {
   query: '',
   status: null,
-  genre: null,
-  language: null,
+  genres: [],
+  languages: [],
   sort: 'dateAdded',
   direction: 'desc',
 }
 
-export const SORT_OPTIONS: Array<{ value: SortKey; label: string }> = [
-  { value: 'dateAdded', label: 'Date added' },
-  { value: 'title', label: 'Title' },
-  { value: 'author', label: 'Author' },
-  { value: 'rating', label: 'Rating' },
+export const SORT_OPTIONS: Array<{ value: SortKey; label: string; short: string }> = [
+  { value: 'dateAdded', label: 'Recently added', short: 'Recent' },
+  { value: 'title', label: 'Title A–Z', short: 'Title' },
+  { value: 'author', label: 'Author', short: 'Author' },
+  { value: 'rating', label: 'Rating', short: 'Rating' },
 ]
 
 /** Sensible default direction for each key: newest / best first, A→Z for text. */
@@ -35,6 +37,7 @@ function matchesQuery(book: Book, query: string): boolean {
   const q = query.trim().toLowerCase()
   if (!q) return true
   if (book.title.toLowerCase().includes(q) || book.author.toLowerCase().includes(q)) return true
+  if (book.genre.toLowerCase().includes(q) || book.language.toLowerCase().includes(q)) return true
   const isbnQuery = normalizeIsbn(q)
   return isbnQuery.length >= 4 && book.isbn.includes(isbnQuery)
 }
@@ -60,8 +63,8 @@ export function applyFilters(books: Book[], filters: LibraryFilters): Book[] {
   const result = books.filter(
     (book) =>
       (!filters.status || book.status === filters.status) &&
-      (!filters.genre || book.genre === filters.genre) &&
-      (!filters.language || book.language === filters.language) &&
+      (filters.genres.length === 0 || filters.genres.includes(book.genre)) &&
+      (filters.languages.length === 0 || filters.languages.includes(book.language)) &&
       matchesQuery(book, filters.query),
   )
   result.sort((a, b) => {
@@ -69,6 +72,11 @@ export function applyFilters(books: Book[], filters: LibraryFilters): Book[] {
     return filters.direction === 'asc' ? order : -order
   })
   return result
+}
+
+/** True when anything other than the sort narrows the list. */
+export function isFiltered(filters: LibraryFilters): boolean {
+  return Boolean(filters.query || filters.status || filters.genres.length || filters.languages.length)
 }
 
 /** Distinct values present in the library, sorted with counts. */

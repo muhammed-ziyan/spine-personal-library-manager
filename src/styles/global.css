@@ -16,9 +16,10 @@ body {
   margin: 0;
   min-height: 100dvh;
   font-family: var(--font-body);
-  font-size: var(--text-base);
-  line-height: var(--leading-normal);
-  color: var(--color-ink);
+  font-size: 15px;
+  line-height: 1.55;
+  font-weight: 400;
+  color: var(--color-text);
   background: var(--color-bg);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -34,11 +35,11 @@ h2,
 h3,
 h4 {
   margin: 0;
-  font-family: var(--font-display);
-  font-weight: 600;
-  line-height: var(--leading-tight);
-  letter-spacing: -0.01em;
-  color: var(--color-ink);
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  line-height: 1.12;
+  letter-spacing: -0.015em;
+  color: inherit;
 }
 
 p {
@@ -79,15 +80,18 @@ ol {
   list-style: none;
 }
 
-/* A single, consistent focus treatment for every interactive element. */
-:focus-visible {
-  outline: 3px solid var(--color-accent);
-  outline-offset: 2px;
-  border-radius: var(--radius-sm);
+::selection {
+  background: color-mix(in srgb, var(--color-accent) 30%, transparent);
 }
 
-:focus:not(:focus-visible) {
+:focus {
   outline: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
 }
 
 /* Visually hidden but readable by assistive technology. */
@@ -103,68 +107,89 @@ ol {
   border: 0;
 }
 
-/* Shared page primitives (used by every screen). */
+/* ---- Shared page primitives ---- */
 .page {
   width: 100%;
   max-width: var(--content-max);
   margin: 0 auto;
-  padding: calc(var(--space-6) + var(--safe-top)) var(--page-padding) calc(var(--nav-height) + var(--space-8) + var(--safe-bottom));
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: calc(8px + var(--safe-top)) var(--page-padding) calc(22px + var(--safe-bottom));
   animation: page-in var(--duration-slow) var(--ease-out);
+}
+
+/* Screens that sit above the bottom navigation. */
+.page--nav {
+  padding-bottom: calc(var(--nav-height) + 22px + var(--safe-bottom));
 }
 
 .page--wide {
   max-width: 56rem;
 }
 
-.page-header {
+/* Pushed screens with a sticky call to action at the bottom. */
+.page--footer {
+  padding-bottom: 0;
+}
+
+.page-footer {
+  position: sticky;
+  bottom: 0;
+  margin: auto calc(-1 * var(--page-padding)) 0;
+  padding: 12px var(--page-padding) calc(30px + var(--safe-bottom));
+  background: var(--color-bg);
   display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: var(--space-4);
-  margin-bottom: var(--space-6);
+  gap: 10px;
 }
 
-.page-title {
-  font-size: var(--text-2xl);
-}
-
-.page-eyebrow {
-  font-size: var(--text-sm);
-  font-weight: 500;
-  color: var(--color-ink-muted);
-  margin-bottom: var(--space-1);
+.page-footer > * {
+  flex: 1;
 }
 
 .section-title {
-  font-family: var(--font-body);
-  font-size: var(--text-md);
-  font-weight: 600;
-  letter-spacing: 0;
-  margin-bottom: var(--space-3);
+  font-size: 22px;
 }
 
-.section {
-  margin-bottom: var(--space-8);
+.section-title--sm {
+  font-size: 20px;
+}
+
+.section-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.section-link {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-accent);
+  white-space: nowrap;
 }
 
 .stack {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-}
-
-.row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
+  gap: 10px;
 }
 
 .muted {
-  color: var(--color-ink-muted);
+  color: var(--color-neutral-700);
 }
 
 .text-sm {
-  font-size: var(--text-sm);
+  font-size: 13px;
+}
+
+.field-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-neutral-700);
+  margin-bottom: 5px;
 }
 
 @keyframes page-in {
@@ -198,11 +223,14 @@ ol {
   }
 }
 
-/* Tablet and desktop: keep the app feeling like a phone app in a comfortable column. */
+/* Tablet and desktop: keep the phone-app feel in a comfortable column. */
 @media (min-width: 48rem) {
   :root {
-    --page-padding: 2rem;
+    --page-padding: 32px;
     --content-max: 34rem;
+  }
+  .page {
+    padding-top: calc(24px + var(--safe-top));
   }
 }
 

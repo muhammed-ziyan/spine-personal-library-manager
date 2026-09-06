@@ -1,21 +1,22 @@
 /**
- * Authentication, authorisation, abuse protection and cell sanitisation.
+ * Access control, abuse protection and cell sanitisation.
  *
  * Trust model
  * ───────────
- * The web app is deployed as "execute as me / anyone", because that is the only
- * deployment shape a cross-origin PWA can call. The URL is therefore NOT a
- * secret and is NOT the access control. Instead every request carries a Google
- * ID token minted by Google Identity Services in the browser. We verify it with
- * Google's tokeninfo endpoint and then check the account against an allow-list.
+ * Spine is a personal app: one deployment serves one spreadsheet, and the
+ * person who owns the sheet deploys the script themselves. There is no
+ * sign-in. The web app is deployed as "execute as me / anyone", which is the
+ * only deployment shape a cross-origin PWA can call, so the deployment URL is
+ * what grants access — treat it like a password.
+ *
+ * Optionally the owner sets an ACCESS_KEY Script Property. When present, every
+ * request must carry the same value in its `key` field; that lets a leaked URL
+ * be locked out again without redeploying.
  *
  * CORS: Apps Script always answers with `Access-Control-Allow-Origin: *` and
  * cannot handle pre-flight requests. We cannot narrow that header, so we
- * compensate with the token check above, a body-size cap and rate limiting.
+ * compensate with the key check above, a body-size cap and rate limiting.
  */
-
-var GOOGLE_ISSUERS = ['accounts.google.com', 'https://accounts.google.com'];
-var TOKENINFO_URL = 'https://oauth2.googleapis.com/tokeninfo?id_token=';
 
 /** Thrown for any request that should be rejected with a specific API code. */
 function apiError_(code, message, details) {
@@ -26,66 +27,35 @@ function apiError_(code, message, details) {
 }
 
 /**
- * Verify the ID token and return the authenticated email.
- * Throws UNAUTHORIZED (bad/expired token) or FORBIDDEN (valid but not allowed).
+ * Check the optional access key on a request envelope.
+ * Throws UNAUTHORIZED when a key is configured and the request's key does not match.
  */
-function authenticate_(idToken) {
-  if (typeof idToken !== 'string' || idToken.length < 20 || idToken.length > 4096) {
-    throw apiError_('UNAUTHORIZED', 'Sign in to continue.');
+function authorize_(envelope) {
+  var expected = getAccessKey_();
+  if (!expected) return;
+  var supplied = envelope.key;
+  if (typeof supplied !== 'string' || supplied.length === 0 || supplied.length > LIMITS.accessKeyMax) {
+    throw apiError_('UNAUTHORIZED', 'This library needs an access key.');
   }
-  var clientId = getGoogleClientId_();
-  var allowed = getAllowedEmails_();
-  if (!clientId || allowed.length === 0) {
-    // Refuse to run wide open. The deployer must finish configuration.
-    throw apiError_('SERVER_ERROR', 'The backend is not fully configured.');
-  }
-
-  var cache = CacheService.getScriptCache();
-  var cacheKey = 'tok:' + sha256Hex_(idToken);
-  var email = cache.get(cacheKey);
-
-  if (!email) {
-    var info = fetchTokenInfo_(idToken);
-    if (!info) throw apiError_('UNAUTHORIZED', 'Your session has expired. Please sign in again.');
-    if (info.aud !== clientId) throw apiError_('UNAUTHORIZED', 'Token was not issued for this app.');
-    if (GOOGLE_ISSUERS.indexOf(info.iss) === -1) throw apiError_('UNAUTHORIZED', 'Token issuer is not Google.');
-    if (String(info.email_verified) !== 'true') throw apiError_('UNAUTHORIZED', 'Email address is not verified.');
-    var exp = Number(info.exp) * 1000;
-    var now = Date.now();
-    if (!exp || exp <= now) throw apiError_('UNAUTHORIZED', 'Your session has expired. Please sign in again.');
-    email = String(info.email || '').toLowerCase();
-    if (!email) throw apiError_('UNAUTHORIZED', 'Token has no email.');
-    // Cache until shortly before expiry (max 10 min) to avoid a network round trip per request.
-    var ttl = Math.max(0, Math.min(600, Math.floor((exp - now) / 1000) - 30));
-    if (ttl > 0) cache.put(cacheKey, email, ttl);
-  }
-
-  if (allowed.indexOf(email) === -1) {
-    throw apiError_('FORBIDDEN', 'This Google account is not allowed to use this library.');
-  }
-  return email;
-}
-
-function fetchTokenInfo_(idToken) {
-  try {
-    var response = UrlFetchApp.fetch(TOKENINFO_URL + encodeURIComponent(idToken), {
-      muteHttpExceptions: true,
-      followRedirects: false,
-    });
-    if (response.getResponseCode() !== 200) return null;
-    var info = JSON.parse(response.getContentText());
-    return info && typeof info === 'object' ? info : null;
-  } catch (e) {
-    Logger.log('tokeninfo failed: ' + (e && e.message));
-    return null;
+  if (!safeEqual_(supplied, expected)) {
+    throw apiError_('UNAUTHORIZED', 'The access key is not right for this library.');
   }
 }
 
-/** Simple fixed-window rate limit per account. */
-function enforceRateLimit_(email) {
+/** Constant-time string comparison over fixed-length digests. */
+function safeEqual_(a, b) {
+  var ha = sha256Hex_(a);
+  var hb = sha256Hex_(b);
+  var diff = 0;
+  for (var i = 0; i < ha.length; i++) diff |= ha.charCodeAt(i) ^ hb.charCodeAt(i);
+  return diff === 0;
+}
+
+/** Simple fixed-window rate limit for the whole deployment (there is no per-user identity). */
+function enforceRateLimit_() {
   var cache = CacheService.getScriptCache();
   var minute = Math.floor(Date.now() / 60000);
-  var key = 'rl:' + sha256Hex_(email) + ':' + minute;
+  var key = 'rl:' + minute;
   var count = Number(cache.get(key) || 0) + 1;
   cache.put(key, String(count), 90);
   if (count > LIMITS.rateLimitPerMinute) {

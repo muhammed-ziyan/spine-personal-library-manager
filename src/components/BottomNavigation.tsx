@@ -14,6 +14,7 @@ const items: NavItem[] = [
   { to: '/library', label: 'Library', icon: 'library' },
   { to: '/add', label: 'Add', icon: 'plus', emphasized: true },
   { to: '/stats', label: 'Stats', icon: 'stats' },
+  { to: '/you', label: 'You', icon: 'user' },
 ]
 
 export function BottomNavigation() {
@@ -25,12 +26,13 @@ export function BottomNavigation() {
             <NavLink
               to={item.to}
               end={item.to === '/'}
+              aria-label={item.emphasized ? item.label : undefined}
               className={({ isActive }) => [styles.link, item.emphasized && styles.emphasized, isActive && styles.active].filter(Boolean).join(' ')}
             >
               <span className={styles.iconWrap}>
-                <Icon name={item.icon} size={item.emphasized ? 26 : 23} />
+                <Icon name={item.icon} size={24} />
               </span>
-              <span className={styles.label}>{item.label}</span>
+              {!item.emphasized && <span className={styles.label}>{item.label}</span>}
             </NavLink>
           </li>
         ))}

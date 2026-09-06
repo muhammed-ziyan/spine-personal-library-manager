@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatIsbn, isBooklandEan, isbn10To13, isValidIsbn10, isValidIsbn13, normalizeIsbn, parseIsbn } from './isbn'
+import { formatIsbn, isBooklandEan, isbn10To13, isbn13To10, isValidIsbn10, isValidIsbn13, normalizeIsbn, parseIsbn } from './isbn'
 
 describe('normalizeIsbn', () => {
   it('strips hyphens, spaces and prefixes', () => {
@@ -41,6 +41,19 @@ describe('ISBN-13', () => {
     expect(isValidIsbn13('9780735211293')).toBe(false)
     expect(isValidIsbn13('978073521129')).toBe(false)
     expect(isValidIsbn13('97807352112921')).toBe(false)
+  })
+
+  it('converts a 978 ISBN back to its ISBN-10', () => {
+    expect(isbn13To10('9780735211292')).toBe('0735211299')
+    expect(isbn13To10('9780306406157')).toBe('0306406152')
+    // 0-8044-2957-X round-trips through the X check digit.
+    expect(isbn13To10(isbn10To13('080442957X'))).toBe('080442957X')
+  })
+
+  it('has no ISBN-10 for 979 ranges or for invalid input', () => {
+    expect(isbn13To10('9791234567896')).toBe('')
+    expect(isbn13To10('9780735211293')).toBe('')
+    expect(isbn13To10('0735211299')).toBe('')
   })
 })
 

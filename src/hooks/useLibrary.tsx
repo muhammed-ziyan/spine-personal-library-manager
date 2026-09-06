@@ -16,6 +16,8 @@ interface LibraryContextValue {
   stats: LibraryStats | null
   state: LoadState
   error: ApiError | null
+  /** Wall-clock time of the last successful full sync, for "Synced 2 min ago". */
+  lastSyncedAt: number | null
   refresh: () => Promise<void>
   getBook: (id: string) => Book | undefined
   fetchBook: (id: string) => Promise<Book>
@@ -38,6 +40,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   const [stats, setStats] = useState<LibraryStats | null>(null)
   const [state, setState] = useState<LoadState>('idle')
   const [error, setError] = useState<ApiError | null>(null)
+  const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null)
   const requestId = useRef(0)
 
   const refreshStats = useCallback(async () => {
@@ -58,6 +61,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       setBooks(sortByDateAddedDesc(booksResult.books))
       setGenres(genresResult)
       setStats(statsResult)
+      setLastSyncedAt(Date.now())
       setState('ready')
     } catch (err) {
       if (id !== requestId.current) return
@@ -143,8 +147,8 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   )
 
   const value = useMemo<LibraryContextValue>(
-    () => ({ books, genres, stats, state, error, refresh, getBook, fetchBook, addBook, updateBook, deleteBook, changeStatus }),
-    [books, genres, stats, state, error, refresh, getBook, fetchBook, addBook, updateBook, deleteBook, changeStatus],
+    () => ({ books, genres, stats, state, error, lastSyncedAt, refresh, getBook, fetchBook, addBook, updateBook, deleteBook, changeStatus }),
+    [books, genres, stats, state, error, lastSyncedAt, refresh, getBook, fetchBook, addBook, updateBook, deleteBook, changeStatus],
   )
 
   return <LibraryContext.Provider value={value}>{children}</LibraryContext.Provider>

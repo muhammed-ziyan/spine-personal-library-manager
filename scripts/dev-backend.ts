@@ -8,40 +8,21 @@
  *
  *   npm run dev:backend            # http://localhost:8787
  *
- * Then in .env:
- *   VITE_APPS_SCRIPT_URL=http://localhost:8787
- *   VITE_GOOGLE_CLIENT_ID=local-dev
+ * Then paste http://localhost:8787 into the app's Connect screen (or set
+ * VITE_APPS_SCRIPT_URL in .env to pre-fill it). Development builds accept
+ * plain-http localhost/LAN URLs; production builds only talk to script.google.com.
  *
- * With that client ID the sign-in screen offers a "local development session"
- * (development builds only) that mints an unsigned token this server accepts.
- * The deployed backend rejects such tokens because Google cannot verify them.
+ * Set DEV_ACCESS_KEY to exercise the optional access-key gate.
  *
  * Data lives in memory and is lost when the process exits.
  */
 import { createServer } from 'node:http'
-import { createBackend, type TokenInfo } from '../apps-script/__tests__/harness.ts'
+import { createBackend } from '../apps-script/__tests__/harness.ts'
 
 const PORT = Number(process.env.PORT || 8787)
-const CLIENT_ID = 'local-dev'
-const ALLOWED = process.env.DEV_ALLOWED_EMAILS || 'you@example.com'
+const ACCESS_KEY = process.env.DEV_ACCESS_KEY || ''
 
-function decodeUnsignedJwt(token: string): TokenInfo | null {
-  try {
-    const [, payload] = token.split('.')
-    const json = JSON.parse(Buffer.from(payload.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8'))
-    return {
-      aud: String(json.aud ?? ''),
-      iss: String(json.iss ?? ''),
-      email: String(json.email ?? ''),
-      email_verified: String(json.email_verified ?? 'false'),
-      exp: Number(json.exp ?? 0),
-    }
-  } catch {
-    return null
-  }
-}
-
-const backend = createBackend({ clientId: CLIENT_ID, allowedEmails: ALLOWED, resolveToken: decodeUnsignedJwt })
+const backend = createBackend({ accessKey: ACCESS_KEY })
 
 const server = createServer((req, res) => {
   // Mirror Apps Script: permissive CORS, POST only, JSON envelope in a text body.
@@ -79,5 +60,5 @@ const server = createServer((req, res) => {
 
 server.listen(PORT, () => {
   console.log(`Spine dev backend listening on http://localhost:${PORT}`)
-  console.log(`Allowed dev accounts: ${ALLOWED}`)
+  console.log(ACCESS_KEY ? 'Access key required (DEV_ACCESS_KEY is set)' : 'No access key: the URL alone grants access')
 })

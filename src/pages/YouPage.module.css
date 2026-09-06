@@ -1,0 +1,229 @@
+.you {
+  gap: 22px;
+}
+
+.profile {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.profileText {
+  min-width: 0;
+}
+
+.name {
+  font-size: 30px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.since {
+  font-size: 15px;
+  color: var(--color-neutral-700);
+}
+
+/* ---- Reading goal ---- */
+.goal {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px 22px;
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.goalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.goalLabel {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-neutral-700);
+}
+
+.goalNumber {
+  margin-top: 4px;
+  font-family: var(--font-heading);
+  font-size: 32px;
+  line-height: 1.1;
+}
+
+.goalUnit {
+  font-size: 18px;
+}
+
+.goalTrack {
+  height: 12px;
+  border-radius: var(--radius-pill);
+  background: var(--color-bg);
+  overflow: hidden;
+}
+
+.goalFill {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--color-accent-2-500);
+  transition: width var(--duration-slow) var(--ease-out);
+}
+
+.goalText {
+  font-size: 14px;
+  color: var(--color-neutral-700);
+}
+
+/* ---- Grouped rows ---- */
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-tile);
+  background: var(--color-surface);
+  overflow: hidden;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-height: 60px;
+  padding: 16px 18px;
+  text-align: left;
+  color: var(--color-text);
+  transition: background-color var(--duration-fast) var(--ease-out);
+}
+
+.row + .row {
+  position: relative;
+}
+
+.row + .row::before {
+  content: '';
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  top: 0;
+  height: 1px;
+  background: var(--color-divider);
+}
+
+button.row:hover,
+a.row:hover {
+  background: color-mix(in srgb, var(--color-text) 5%, transparent);
+}
+
+.rowIcon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+}
+
+.tone-reading {
+  background: var(--color-accent-200);
+  color: var(--color-accent-900);
+}
+.tone-read {
+  background: var(--color-accent-2-200);
+  color: var(--color-accent-2-900);
+}
+.tone-unread {
+  background: var(--color-neutral-200);
+  color: var(--color-neutral-800);
+}
+
+.rowText {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.rowTitle {
+  font-size: 16px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rowSubtitle {
+  font-size: 13px;
+  color: var(--color-neutral-600);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rowChevron {
+  flex: none;
+  color: var(--color-neutral-500);
+}
+
+.footer {
+  text-align: center;
+  font-size: 13px;
+  color: var(--color-neutral-600);
+}
+
+/* ---- Goal sheet ---- */
+.stepper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 26px;
+}
+
+.stepButton {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--color-surface);
+  color: var(--color-text);
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+
+.stepButton:active {
+  transform: scale(0.94);
+}
+
+.stepButtonAccent {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+.stepValue {
+  min-width: 120px;
+  text-align: center;
+  font-family: var(--font-heading);
+  font-size: 84px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.presets {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.removeGoal {
+  color: var(--color-neutral-700);
+}

@@ -2,6 +2,7 @@ import type { Book, BookInput, BookPatch, BookStatus, Genre, LibraryStats } from
 
 /** Every action the Apps Script backend understands. Mirrors apps-script/Code.gs. */
 export type ApiAction =
+  | 'ping'
   | 'getBooks'
   | 'getBook'
   | 'searchBooks'
@@ -15,7 +16,6 @@ export type ApiAction =
 
 export type ApiErrorCode =
   | 'UNAUTHORIZED'
-  | 'FORBIDDEN'
   | 'BAD_REQUEST'
   | 'VALIDATION'
   | 'NOT_FOUND'
@@ -39,6 +39,13 @@ export interface ApiSuccess<T> {
 }
 
 export type ApiResponse<T> = ApiSuccess<T> | ApiFailure
+
+/** Answer to `ping`: proves a URL (and access key) reach a Spine backend, and names the sheet. */
+export interface PingResult {
+  version: string
+  library: string
+  books: number
+}
 
 export type SortKey = 'title' | 'author' | 'dateAdded' | 'rating'
 
@@ -91,6 +98,7 @@ export interface ChangeStatusParams {
 }
 
 export interface ApiClient {
+  ping(): Promise<PingResult>
   getBooks(params?: GetBooksParams): Promise<GetBooksResult>
   getBook(id: string): Promise<Book>
   searchBooks(query: string): Promise<Book[]>

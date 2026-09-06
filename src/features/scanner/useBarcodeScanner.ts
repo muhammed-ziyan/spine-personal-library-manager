@@ -21,8 +21,21 @@ interface Options {
   onDetected: (code: string) => void
 }
 
+/**
+ * Whether the camera API exists at all. Browsers only expose `mediaDevices` on
+ * secure origins (https:// or localhost), so on a plain http:// LAN URL this is
+ * false — not because the device lacks a camera, but because the page is insecure.
+ */
 export function isCameraSupported(): boolean {
-  return typeof navigator !== 'undefined' && Boolean(navigator.mediaDevices?.getUserMedia) && window.isSecureContext
+  return typeof navigator !== 'undefined' && typeof navigator.mediaDevices?.getUserMedia === 'function'
+}
+
+/** Explains why the camera API is missing, so the user knows how to get it working. */
+export function unsupportedCameraMessage(): string {
+  if (typeof window !== 'undefined' && !window.isSecureContext) {
+    return 'The camera only works on a secure page. Open Spine over https:// (or on localhost), then try again — or enter the ISBN by hand.'
+  }
+  return "This browser can't access the camera. Try Chrome or Safari, or enter the ISBN by hand."
 }
 
 function classifyError(error: unknown): ScannerError {
@@ -53,6 +66,8 @@ export function useBarcodeScanner({ onDetected }: Options) {
   const onDetectedRef = useRef(onDetected)
   const [status, setStatus] = useState<ScannerStatus>('idle')
   const [error, setError] = useState<ScannerError | null>(null)
+  const [torchSupported, setTorchSupported] = useState(false)
+  const [torchOn, setTorchOn] = useState(false)
 
   useEffect(() => {
     onDetectedRef.current = onDetected
@@ -65,12 +80,14 @@ export function useBarcodeScanner({ onDetected }: Options) {
     const stream = video?.srcObject
     if (stream instanceof MediaStream) stream.getTracks().forEach((track) => track.stop())
     if (video) video.srcObject = null
+    setTorchOn(false)
+    setTorchSupported(false)
     setStatus((current) => (current === 'detected' || current === 'error' ? current : 'idle'))
   }, [])
 
   const start = useCallback(async () => {
     if (!isCameraSupported()) {
-      setError({ kind: 'unsupported', message: "This browser can't access the camera. Try Chrome or Safari, or enter the ISBN by hand." })
+      setError({ kind: 'unsupported', message: unsupportedCameraMessage() })
       setStatus('error')
       return
     }
@@ -107,6 +124,7 @@ export function useBarcodeScanner({ onDetected }: Options) {
       )
       controlsRef.current = controls
       setStatus('scanning')
+      setTorchSupported(hasTorch(video))
     } catch (err) {
       setError(classifyError(err))
       setStatus('error')
@@ -120,6 +138,19 @@ export function useBarcodeScanner({ onDetected }: Options) {
     setStatus('idle')
   }, [stop])
 
+  /** Toggle the camera's LED where the platform exposes it (Android Chrome); a no-op elsewhere. */
+  const toggleTorch = useCallback(async () => {
+    const track = videoTrack(videoRef.current)
+    if (!track) return
+    const next = !torchOn
+    try {
+      await track.applyConstraints({ advanced: [{ torch: next } as MediaTrackConstraintSet] })
+      setTorchOn(next)
+    } catch {
+      setTorchSupported(false)
+    }
+  }, [torchOn])
+
   // Always release the camera when the scanner screen unmounts.
   useEffect(() => stop, [stop])
 
@@ -132,5 +163,17 @@ export function useBarcodeScanner({ onDetected }: Options) {
     return () => document.removeEventListener('visibilitychange', onVisibility)
   }, [reset])
 
-  return { videoRef, status, error, start, stop, reset }
+  return { videoRef, status, error, start, stop, reset, torchSupported, torchOn, toggleTorch }
+}
+
+function videoTrack(video: HTMLVideoElement | null): MediaStreamTrack | null {
+  const stream = video?.srcObject
+  return stream instanceof MediaStream ? (stream.getVideoTracks()[0] ?? null) : null
+}
+
+function hasTorch(video: HTMLVideoElement | null): boolean {
+  const track = videoTrack(video)
+  if (!track || typeof track.getCapabilities !== 'function') return false
+  const capabilities = track.getCapabilities() as MediaTrackCapabilities & { torch?: boolean }
+  return capabilities.torch === true
 }

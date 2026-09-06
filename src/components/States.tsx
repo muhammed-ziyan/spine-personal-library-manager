@@ -5,20 +5,32 @@ import styles from './States.module.css'
 
 interface EmptyStateProps {
   icon?: IconName
+  /** Draw the three-books illustration instead of an icon (empty library). */
+  illustration?: boolean
   title: string
   description?: string
   action?: ReactNode
   compact?: boolean
 }
 
-export function EmptyState({ icon = 'book', title, description, action, compact }: EmptyStateProps) {
+export function EmptyState({ icon = 'library', illustration, title, description, action, compact }: EmptyStateProps) {
   return (
     <div className={[styles.state, compact && styles.compact].filter(Boolean).join(' ')}>
-      <span className={styles.iconWrap}>
-        <Icon name={icon} size={28} />
-      </span>
-      <h2 className={styles.title}>{title}</h2>
-      {description && <p className={styles.description}>{description}</p>}
+      {illustration ? (
+        <span className={styles.illustration} aria-hidden="true">
+          <span className={styles.book1} />
+          <span className={styles.book2} />
+          <span className={styles.book3} />
+        </span>
+      ) : (
+        <span className={styles.iconWrap}>
+          <Icon name={icon} size={30} />
+        </span>
+      )}
+      <div>
+        <h2 className={compact ? styles.titleSm : styles.title}>{title}</h2>
+        {description && <p className={styles.description}>{description}</p>}
+      </div>
       {action && <div className={styles.action}>{action}</div>}
     </div>
   )
@@ -35,14 +47,16 @@ interface ErrorStateProps {
 export function ErrorState({ title = 'Something went wrong', message, onRetry, retryLabel = 'Try again', compact }: ErrorStateProps) {
   return (
     <div className={[styles.state, compact && styles.compact].filter(Boolean).join(' ')} role="alert">
-      <span className={[styles.iconWrap, styles.danger].join(' ')}>
-        <Icon name="alert" size={28} />
+      <span className={[styles.iconWrap, styles.warn].join(' ')}>
+        <Icon name="alert" size={30} />
       </span>
-      <h2 className={styles.title}>{title}</h2>
-      <p className={styles.description}>{message}</p>
+      <div>
+        <h2 className={styles.titleSm}>{title}</h2>
+        <p className={styles.description}>{message}</p>
+      </div>
       {onRetry && (
         <div className={styles.action}>
-          <Button variant="secondary" icon="refresh" onClick={onRetry}>
+          <Button variant="secondary" icon="refresh" onClick={onRetry} block>
             {retryLabel}
           </Button>
         </div>
@@ -68,11 +82,11 @@ export function BookCardSkeleton({ count = 3 }: { count?: number }) {
     <div className={styles.skeletonList} role="status" aria-live="polite" aria-label="Loading books">
       {Array.from({ length: count }, (_, i) => (
         <div key={i} className={styles.skeletonCard}>
-          <Skeleton width="3.25rem" height="4.875rem" radius="0.5rem" />
+          <Skeleton width="46px" height="64px" radius="8px" />
           <div className={styles.skeletonLines}>
-            <Skeleton width="70%" height="1rem" />
-            <Skeleton width="45%" height="0.8rem" />
-            <Skeleton width="30%" height="0.7rem" />
+            <Skeleton width="70%" height="14px" />
+            <Skeleton width="45%" height="12px" />
+            <Skeleton width="30%" height="11px" />
           </div>
         </div>
       ))}
@@ -80,10 +94,10 @@ export function BookCardSkeleton({ count = 3 }: { count?: number }) {
   )
 }
 
-export function InlineSpinner({ label = 'Loading' }: { label?: string }) {
+export function InlineSpinner({ label = 'Loading', size = 28 }: { label?: string; size?: number }) {
   return (
     <span className={styles.spinnerWrap} role="status">
-      <span className={styles.spinner} aria-hidden="true" />
+      <span className={styles.spinner} style={{ width: size, height: size }} aria-hidden="true" />
       <span className="sr-only">{label}</span>
     </span>
   )

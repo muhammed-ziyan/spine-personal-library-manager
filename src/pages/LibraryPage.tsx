@@ -1,30 +1,44 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { BookCard, BookCardSkeleton, Button, ChipRow, DropdownChip, EmptyState, ErrorState, FilterChip, IconButton, Modal, OptionList, PageHeader, SearchBar } from '@/components'
+import { BookCard, BookCardSkeleton, Button, ChipRow, DropdownChip, EmptyState, ErrorState, FilterChip, Icon, PageHeader, SearchBar } from '@/components'
 import { useLibrary } from '@/hooks/useLibrary'
+import { usePreferences } from '@/hooks/usePreferences'
 import { describeError } from '@/services/api'
 import { BOOK_STATUSES, isBookStatus, type SortKey } from '@/types'
-import { applyFilters, defaultDirection, distinctValues, SORT_OPTIONS, type LibraryFilters } from '@/features/library/filter'
+import { applyFilters, defaultDirection, distinctValues, isFiltered, SORT_OPTIONS, type LibraryFilters } from '@/features/library/filter'
+import { FilterSheet, type FilterDraft } from '@/features/library/FilterSheet'
 import { pluralize } from '@/utils/format'
 import styles from './LibraryPage.module.css'
 
-type Sheet = 'genre' | 'language' | 'sort' | null
+const RECENT_KEY = 'spine.recentSearches'
+const RECENT_MAX = 5
 
-const VIEW_KEY = 'spine.libraryView'
-
-function readView(): 'list' | 'grid' {
+function readRecent(): string[] {
   try {
-    return localStorage.getItem(VIEW_KEY) === 'grid' ? 'grid' : 'list'
+    const parsed = JSON.parse(localStorage.getItem(RECENT_KEY) ?? '[]')
+    return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === 'string') : []
   } catch {
-    return 'list'
+    return []
   }
 }
 
+function writeRecent(list: string[]) {
+  try {
+    localStorage.setItem(RECENT_KEY, JSON.stringify(list))
+  } catch {
+    /* ignore */
+  }
+}
+
+type Patch = Partial<Record<'q' | 'status' | 'sort', string | null>> & { genre?: string[]; language?: string[] }
+
 export function LibraryPage() {
   const { books, stats, state, error, refresh } = useLibrary()
+  const { defaultView } = usePreferences()
   const [params, setParams] = useSearchParams()
-  const [sheet, setSheet] = useState<Sheet>(null)
-  const [view, setView] = useState<'list' | 'grid'>(readView)
+  const [sheetOpen, setSheetOpen] = useState(false)
+  const [view, setView] = useState<'list' | 'grid'>(defaultView)
+  const [recent, setRecent] = useState<string[]>(readRecent)
 
   const filters = useMemo<LibraryFilters>(() => {
     const status = params.get('status')
@@ -34,21 +48,22 @@ export function LibraryPage() {
     return {
       query: params.get('q') ?? '',
       status: isBookStatus(status) ? status : null,
-      genre: params.get('genre') || null,
-      language: params.get('language') || null,
+      genres: params.getAll('genre').filter(Boolean),
+      languages: params.getAll('language').filter(Boolean),
       sort: sortKey,
       direction,
     }
   }, [params])
 
   const setFilter = useCallback(
-    (patch: Partial<Record<'q' | 'status' | 'genre' | 'language' | 'sort' | 'dir', string | null>>) => {
+    (patch: Patch) => {
       setParams(
         (current) => {
           const next = new URLSearchParams(current)
           for (const [key, value] of Object.entries(patch)) {
-            if (value) next.set(key, value)
-            else next.delete(key)
+            next.delete(key)
+            if (Array.isArray(value)) value.forEach((v) => next.append(key, v))
+            else if (value) next.set(key, value)
           }
           return next
         },
@@ -58,151 +73,154 @@ export function LibraryPage() {
     [setParams],
   )
 
-  const changeView = (next: 'list' | 'grid') => {
-    setView(next)
-    try {
-      localStorage.setItem(VIEW_KEY, next)
-    } catch {
-      /* ignore */
-    }
-  }
+  const rememberSearch = useCallback((query: string) => {
+    const q = query.trim()
+    if (!q) return
+    setRecent((current) => {
+      const next = [q, ...current.filter((v) => v.toLowerCase() !== q.toLowerCase())].slice(0, RECENT_MAX)
+      writeRecent(next)
+      return next
+    })
+  }, [])
 
   const results = useMemo(() => applyFilters(books, filters), [books, filters])
   const genres = useMemo(() => distinctValues(books, 'genre'), [books])
   const languages = useMemo(() => distinctValues(books, 'language'), [books])
   const loading = state === 'loading' || state === 'idle'
-  const filtered = Boolean(filters.query || filters.status || filters.genre || filters.language)
-  const sortLabel = SORT_OPTIONS.find((o) => o.value === filters.sort)?.label ?? 'Sort'
+  const searching = filters.query.trim() !== ''
+  const sortShort = SORT_OPTIONS.find((o) => o.value === filters.sort)?.short ?? 'Sort'
+  const statusCount = (status: (typeof BOOK_STATUSES)[number]) => stats?.byStatus[status]
 
-  const clearFilters = () => setFilter({ q: null, status: null, genre: null, language: null })
+  const clearFilters = () => setFilter({ q: null, status: null, genre: [], language: [] })
 
-  return (
-    <main className="page page--wide">
-      <PageHeader
-        title="Library"
-        display
-        actions={
+  const applySheet = (draft: FilterDraft) => {
+    setFilter({ genre: draft.genres, language: draft.languages, sort: draft.sort === 'dateAdded' ? null : draft.sort })
+    setSheetOpen(false)
+  }
+
+  const viewToggle = (
+    <div className={styles.viewToggle} role="group" aria-label="View">
+      <button type="button" className={[styles.viewButton, view === 'list' && styles.viewActive].filter(Boolean).join(' ')} onClick={() => setView('list')} aria-pressed={view === 'list'} aria-label="List view">
+        <Icon name="list" size={16} />
+      </button>
+      <button type="button" className={[styles.viewButton, view === 'grid' && styles.viewActive].filter(Boolean).join(' ')} onClick={() => setView('grid')} aria-pressed={view === 'grid'} aria-label="Grid view">
+        <Icon name="grid" size={16} />
+      </button>
+    </div>
+  )
+
+  let body
+  if (state === 'error' && error) {
+    body = <ErrorState title="Couldn't load your library" message={describeError(error)} onRetry={() => void refresh()} />
+  } else if (loading) {
+    body = <BookCardSkeleton count={5} />
+  } else if (books.length === 0) {
+    body = (
+      <EmptyState
+        illustration
+        title="Your Spine is empty"
+        description="Start adding the books you own. Scanning takes a few seconds per book."
+        action={
           <>
-            <IconButton icon="sort" label={`Sort by ${sortLabel}`} onClick={() => setSheet('sort')} />
-            <IconButton icon={view === 'list' ? 'grid' : 'list'} label={view === 'list' ? 'Switch to grid view' : 'Switch to list view'} onClick={() => changeView(view === 'list' ? 'grid' : 'list')} />
+            <Button to="/scan" icon="scan" size="xl" block>
+              Scan Your First Book
+            </Button>
+            <Button to="/books/new" variant="ghost" block>
+              Add Manually
+            </Button>
           </>
         }
       />
+    )
+  } else if (results.length === 0) {
+    body = (
+      <EmptyState
+        icon="search"
+        compact
+        title="No books match"
+        description={searching ? 'Try a different word, or check the spelling.' : 'Try different filters, or clear them.'}
+        action={
+          <Button variant="secondary" onClick={clearFilters}>
+            {searching ? 'Clear search' : 'Clear filters'}
+          </Button>
+        }
+      />
+    )
+  } else {
+    body = (
+      <ul className={view === 'grid' && !searching ? styles.grid : styles.list} onClickCapture={searching ? () => rememberSearch(filters.query) : undefined}>
+        {results.map((book) => (
+          <li key={book.id}>
+            <BookCard book={book} layout={searching ? 'list' : view} highlight={searching ? filters.query : undefined} />
+          </li>
+        ))}
+      </ul>
+    )
+  }
 
-      <div className={styles.controls}>
-        <SearchBar value={filters.query} onChange={(q) => setFilter({ q })} />
-        <ChipRow label="Filter by status">
-          <FilterChip selected={!filters.status} onClick={() => setFilter({ status: null })} count={stats?.total}>
-            All
-          </FilterChip>
-          {BOOK_STATUSES.map((status) => (
-            <FilterChip key={status} selected={filters.status === status} onClick={() => setFilter({ status: filters.status === status ? null : status })} count={stats?.byStatus[status]}>
-              {status}
-            </FilterChip>
-          ))}
-          <DropdownChip active={Boolean(filters.genre)} onClick={() => setSheet('genre')} aria-haspopup="dialog">
-            {filters.genre ?? 'Genre'}
-          </DropdownChip>
-          <DropdownChip active={Boolean(filters.language)} onClick={() => setSheet('language')} aria-haspopup="dialog">
-            {filters.language ?? 'Language'}
-          </DropdownChip>
-        </ChipRow>
-      </div>
+  return (
+    <main className={['page', 'page--nav', 'page--wide', styles.library].join(' ')}>
+      {!searching && <PageHeader display title="Library" actions={viewToggle} />}
 
-      {state === 'error' && error ? (
-        <ErrorState title="Couldn't load your library" message={describeError(error)} onRetry={() => void refresh()} />
-      ) : loading ? (
-        <BookCardSkeleton count={5} />
-      ) : books.length === 0 ? (
-        <EmptyState
-          title="Your library is empty"
-          description="Start adding the books you own."
-          action={
-            <Button to="/scan" icon="scan" size="lg">
-              Scan Your First Book
-            </Button>
-          }
-        />
-      ) : results.length === 0 ? (
-        <EmptyState
-          icon="search"
-          title="No books match"
-          description="Try a different search or clear your filters."
-          compact
-          action={
-            <Button variant="secondary" onClick={clearFilters}>
-              Clear filters
-            </Button>
-          }
-        />
+      <SearchBar value={filters.query} onChange={(q) => setFilter({ q })} onCommit={rememberSearch} onCancel={() => setFilter({ q: null })} />
+
+      {searching ? (
+        !loading &&
+        results.length > 0 && (
+          <p className={styles.resultCount} role="status">
+            {pluralize(results.length, 'result')} · matching title, author or ISBN
+          </p>
+        )
       ) : (
         <>
-          <p className={styles.resultCount} role="status">
-            <span>{pluralize(results.length, 'book')}</span>
-            {filtered && (
+          <ChipRow label="Filter by status">
+            <FilterChip selected={!filters.status} onClick={() => setFilter({ status: null })} count={filters.status ? undefined : stats?.total}>
+              All
+            </FilterChip>
+            {BOOK_STATUSES.map((status) => (
+              <FilterChip key={status} selected={filters.status === status} onClick={() => setFilter({ status: filters.status === status ? null : status })} count={filters.status === status ? statusCount(status) : undefined}>
+                {status}
+              </FilterChip>
+            ))}
+          </ChipRow>
+          <div className={styles.filterRow}>
+            <DropdownChip active={filters.genres.length > 0} onClick={() => setSheetOpen(true)} aria-haspopup="dialog">
+              {filters.genres.length === 1 ? filters.genres[0] : filters.genres.length > 1 ? `Genre · ${filters.genres.length}` : 'Genre'}
+            </DropdownChip>
+            <DropdownChip active={filters.languages.length > 0} onClick={() => setSheetOpen(true)} aria-haspopup="dialog">
+              {filters.languages.length === 1 ? filters.languages[0] : filters.languages.length > 1 ? `Language · ${filters.languages.length}` : 'Language'}
+            </DropdownChip>
+            <DropdownChip icon="sort" className={styles.sortChip} onClick={() => setSheetOpen(true)} aria-haspopup="dialog" aria-label={`Sort by ${sortShort}`}>
+              {sortShort}
+            </DropdownChip>
+          </div>
+          {isFiltered(filters) && !loading && books.length > 0 && results.length > 0 && (
+            <p className={styles.resultCount} role="status">
+              <span>{pluralize(results.length, 'book')}</span>
               <button type="button" className={styles.clear} onClick={clearFilters}>
                 Clear filters
               </button>
-            )}
-          </p>
-          <ul className={view === 'grid' ? styles.grid : styles.list}>
-            {results.map((book) => (
-              <li key={book.id}>
-                <BookCard book={book} layout={view} />
-              </li>
-            ))}
-          </ul>
+            </p>
+          )}
         </>
       )}
 
-      <Modal open={sheet === 'genre'} onClose={() => setSheet(null)} title="Genre">
-        {genres.length === 0 ? (
-          <p className="muted">No genres yet — add a genre to a book to filter by it.</p>
-        ) : (
-          <OptionList
-            value={filters.genre ?? '__all'}
-            options={[{ value: '__all', label: 'All genres' }, ...genres.map((g) => ({ value: g.value, label: g.value, hint: String(g.count) }))]}
-            onSelect={(value) => {
-              setFilter({ genre: value === '__all' ? null : value })
-              setSheet(null)
-            }}
-          />
-        )}
-      </Modal>
+      {body}
 
-      <Modal open={sheet === 'language'} onClose={() => setSheet(null)} title="Language">
-        {languages.length === 0 ? (
-          <p className="muted">No languages yet — add a language to a book to filter by it.</p>
-        ) : (
-          <OptionList
-            value={filters.language ?? '__all'}
-            options={[{ value: '__all', label: 'All languages' }, ...languages.map((l) => ({ value: l.value, label: l.value, hint: String(l.count) }))]}
-            onSelect={(value) => {
-              setFilter({ language: value === '__all' ? null : value })
-              setSheet(null)
-            }}
-          />
-        )}
-      </Modal>
-
-      <Modal open={sheet === 'sort'} onClose={() => setSheet(null)} title="Sort by">
-        <OptionList
-          value={filters.sort}
-          options={SORT_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
-          onSelect={(value) => {
-            setFilter({ sort: value, dir: null })
-            setSheet(null)
-          }}
-        />
-        <div className={styles.direction} role="group" aria-label="Direction">
-          <FilterChip selected={filters.direction === 'asc'} onClick={() => setFilter({ dir: 'asc' })}>
-            {filters.sort === 'dateAdded' ? 'Oldest first' : filters.sort === 'rating' ? 'Lowest first' : 'A → Z'}
-          </FilterChip>
-          <FilterChip selected={filters.direction === 'desc'} onClick={() => setFilter({ dir: 'desc' })}>
-            {filters.sort === 'dateAdded' ? 'Newest first' : filters.sort === 'rating' ? 'Highest first' : 'Z → A'}
-          </FilterChip>
+      {searching && recent.length > 0 && (
+        <div className={styles.recent}>
+          <div className={styles.recentLabel}>Recent searches</div>
+          <div className={styles.recentChips}>
+            {recent.map((term) => (
+              <button key={term} type="button" className={styles.recentChip} onClick={() => setFilter({ q: term })}>
+                {term}
+              </button>
+            ))}
+          </div>
         </div>
-      </Modal>
+      )}
+
+      <FilterSheet open={sheetOpen} onClose={() => setSheetOpen(false)} books={books} filters={filters} genres={genres} languages={languages} onApply={applySheet} />
     </main>
   )
 }

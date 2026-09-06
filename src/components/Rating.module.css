@@ -1,64 +1,73 @@
-.rating {
+.wrap {
   display: inline-flex;
   align-items: center;
-  gap: 1px;
-  color: var(--color-warning);
+  gap: 6px;
   line-height: 1;
 }
 
-.sm {
-  font-size: var(--text-xs);
-}
-.md {
-  gap: 2px;
-}
-.lg {
-  gap: 4px;
+.stars {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
 }
 
-.unrated {
-  color: var(--color-ink-faint);
-  font-weight: 500;
+.sm .stars {
+  font-size: 12px;
+  letter-spacing: 1px;
+}
+
+.md .stars {
+  font-size: 18px;
+  letter-spacing: 2px;
+}
+
+.lg .stars {
+  font-size: 30px;
+  letter-spacing: 6px;
 }
 
 .on {
-  color: var(--color-warning);
+  color: var(--color-accent);
 }
 
 .off {
-  color: var(--color-ink-faint);
-  opacity: 0.6;
-}
-
-.interactive {
-  gap: 0;
+  color: var(--color-neutral-400);
 }
 
 .starButton {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: var(--tap-min);
-  height: var(--tap-min);
-  border-radius: 50%;
+  min-width: 1em;
+  padding: 0;
+  line-height: 1;
+  border-radius: var(--radius-sm);
   transition: transform var(--duration-fast) var(--ease-out);
 }
-.starButton:hover {
-  transform: scale(1.12);
+
+.md .starButton {
+  min-height: 32px;
 }
+
+.lg .starButton {
+  min-height: 44px;
+}
+
+.starButton:hover {
+  transform: scale(1.1);
+}
+
 .starButton:active {
   transform: scale(0.95);
 }
 
-.clear {
-  margin-left: var(--space-2);
+.caption {
+  font-size: 13px;
+  color: var(--color-neutral-600);
+  letter-spacing: 0;
   white-space: nowrap;
-  font-size: var(--text-sm);
-  font-weight: 500;
-  color: var(--color-ink-muted);
-  min-height: var(--tap-min);
-  padding-inline: var(--space-2);
 }
-.clear:disabled {
-  cursor: default;
+
+.sm .caption {
+  font-size: 12px;
 }

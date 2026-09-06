@@ -65,6 +65,20 @@ export function isbn10To13(isbn10: string): string {
 }
 
 /**
+ * Convert a 978-prefixed ISBN-13 back to its ISBN-10, or `''` when there is no
+ * equivalent (979 ranges have none). Frontend-only: Open Library indexes many
+ * older editions under their ISBN-10 alone, so lookups ask for both forms.
+ */
+export function isbn13To10(isbn13: string): string {
+  if (!isValidIsbn13(isbn13) || !isbn13.startsWith('978')) return ''
+  const core = isbn13.slice(3, 12)
+  let sum = 0
+  for (let i = 0; i < 9; i++) sum += Number(core[i]) * (10 - i)
+  const remainder = (11 - (sum % 11)) % 11
+  return core + (remainder === 10 ? 'X' : String(remainder))
+}
+
+/**
  * EAN barcodes on books are ISBN-13s in the 978/979 "Bookland" ranges.
  * Other EAN-13s (e.g. groceries) are not books.
  */

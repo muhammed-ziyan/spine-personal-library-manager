@@ -58,10 +58,7 @@ function ensureSheet_(ss, name, headers) {
  * anything sensitive) so you can confirm setup from the editor.
  */
 function checkConfiguration() {
-  var clientId = getGoogleClientId_();
-  var emails = getAllowedEmails_();
-  Logger.log('GOOGLE_CLIENT_ID set: ' + (clientId ? 'yes' : 'NO'));
-  Logger.log('ALLOWED_EMAILS count: ' + emails.length);
+  Logger.log('ACCESS_KEY set: ' + (getAccessKey_() ? 'yes' : 'no (the deployment URL alone grants access)'));
   Logger.log('Spreadsheet: ' + getSpreadsheet_().getName());
   [SHEETS.BOOKS, SHEETS.GENRES, SHEETS.SETTINGS, SHEETS.HISTORY].forEach(function (name) {
     Logger.log('Sheet "' + name + '": ' + (getSpreadsheet_().getSheetByName(name) ? 'ok' : 'MISSING'));

@@ -1,10 +1,12 @@
 /**
- * Runtime configuration. Both values are public identifiers shipped to the
- * browser; neither is a secret. Real secrets never belong in the frontend.
+ * Build-time configuration. Spine has no sign-in: the person using it connects
+ * their own Apps Script deployment from the app (see services/connections.ts).
+ * The single value here is a convenience for development — it pre-fills the
+ * Connect screen so a fresh `npm run dev` doesn't need a paste.
  */
 export interface AppConfig {
-  appsScriptUrl: string
-  googleClientId: string
+  /** Optional Apps Script URL to suggest on the Connect screen. Never a secret. */
+  defaultAppsScriptUrl: string
 }
 
 function readEnv(key: string): string {
@@ -13,19 +15,7 @@ function readEnv(key: string): string {
 }
 
 export const config: AppConfig = {
-  appsScriptUrl: readEnv('VITE_APPS_SCRIPT_URL'),
-  googleClientId: readEnv('VITE_GOOGLE_CLIENT_ID'),
-}
-
-/** Marker client ID that enables the local development session (dev builds only). */
-export const LOCAL_DEV_CLIENT_ID = 'local-dev'
-
-export function isConfigured(): boolean {
-  return Boolean(config.appsScriptUrl && config.googleClientId)
-}
-
-export function isLocalDevMode(): boolean {
-  return Boolean(import.meta.env.DEV) && config.googleClientId === LOCAL_DEV_CLIENT_ID
+  defaultAppsScriptUrl: readEnv('VITE_APPS_SCRIPT_URL'),
 }
 
 /**

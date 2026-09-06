@@ -4,9 +4,11 @@
  * Transport notes:
  *  - Apps Script web apps cannot answer CORS pre-flight requests, so every call
  *    is a "simple" POST with a text/plain body. The JSON action envelope and
- *    the Google ID token travel in that body, never in headers or the URL.
+ *    the optional access key travel in that body, never in headers or the URL.
  *  - Apps Script answers with a 302 to script.googleusercontent.com; `fetch`
  *    follows it transparently.
+ *  - Which deployment we talk to comes from the active connection
+ *    (services/connections.ts); there is no sign-in.
  */
 import type {
   AddBookParams,
@@ -22,10 +24,11 @@ import type {
   GetBooksParams,
   GetBooksResult,
   LibraryStats,
+  PingResult,
   UpdateBookParams,
 } from '@/types'
-import { config, isValidAppsScriptUrl } from './config'
-import { auth } from './auth'
+import { isValidAppsScriptUrl } from './config'
+import { connections, type ConnectionTarget } from './connections'
 
 export const REQUEST_TIMEOUT_MS = 25_000
 
@@ -71,9 +74,7 @@ export function describeError(error: unknown): string {
   const apiError = toApiError(error)
   switch (apiError.code) {
     case 'UNAUTHORIZED':
-      return 'Your session has expired. Please sign in again.'
-    case 'FORBIDDEN':
-      return 'This Google account is not allowed to use this library.'
+      return 'This library needs a different access key.'
     case 'NOT_FOUND':
       return "We couldn't find that book. It may have been deleted."
     case 'VALIDATION':
@@ -82,10 +83,11 @@ export function describeError(error: unknown): string {
     case 'RATE_LIMITED':
       return 'Too many requests right now. Wait a moment and try again.'
     case 'NOT_CONFIGURED':
-      return 'Spine is not connected to a library yet.'
+      return 'No library is connected yet.'
+    case 'MALFORMED_RESPONSE':
+      return "That address answered, but not like a Spine library. Check it's the web-app URL ending in /exec."
     case 'NETWORK':
     case 'TIMEOUT':
-    case 'MALFORMED_RESPONSE':
     case 'SERVER_ERROR':
     default:
       return apiError.message || 'Something went wrong. Please try again.'
@@ -95,15 +97,16 @@ export function describeError(error: unknown): string {
 interface Envelope {
   action: ApiAction
   payload: unknown
-  idToken: string
+  /** Present only when the connection has an access key. */
+  key?: string
 }
 
 export interface Transport {
-  (envelope: Envelope, signal: AbortSignal): Promise<Response>
+  (url: string, envelope: Envelope, signal: AbortSignal): Promise<Response>
 }
 
-const defaultTransport: Transport = (envelope, signal) =>
-  fetch(config.appsScriptUrl, {
+const defaultTransport: Transport = (url, envelope, signal) =>
+  fetch(url, {
     method: 'POST',
     // text/plain keeps this a CORS "simple request" (no pre-flight), which is
     // the only shape Apps Script can serve cross-origin.
@@ -125,20 +128,24 @@ function isApiResponse(value: unknown): value is ApiResponse<unknown> {
   return false
 }
 
-export function createApiClient(transport: Transport = defaultTransport): ApiClient {
+/**
+ * @param transport network layer (swapped out in tests)
+ * @param resolveTarget where to send requests; defaults to the active connection
+ */
+export function createApiClient(transport: Transport = defaultTransport, resolveTarget: () => ConnectionTarget | null = connections.getActiveTarget): ApiClient {
   async function call<T>(action: ApiAction, payload: unknown = {}): Promise<T> {
-    if (!config.appsScriptUrl || !isValidAppsScriptUrl(config.appsScriptUrl)) {
-      throw new ApiError('NOT_CONFIGURED', 'Spine is not connected to a library yet.')
+    const target = resolveTarget()
+    if (!target || !isValidAppsScriptUrl(target.url)) {
+      throw new ApiError('NOT_CONFIGURED', 'No library is connected yet.')
     }
-    const idToken = auth.getToken()
-    if (!idToken) throw new ApiError('UNAUTHORIZED', 'Please sign in to continue.')
+    const envelope: Envelope = target.accessKey ? { action, payload, key: target.accessKey } : { action, payload }
 
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
 
     let response: Response
     try {
-      response = await transport({ action, payload, idToken }, controller.signal)
+      response = await transport(target.url, envelope, controller.signal)
     } catch (error) {
       throw toApiError(error)
     } finally {
@@ -160,13 +167,13 @@ export function createApiClient(transport: Transport = defaultTransport): ApiCli
 
     if (!body.ok) {
       const { code, message, details } = body.error
-      if (code === 'UNAUTHORIZED') auth.invalidate()
       throw new ApiError(code, message, details)
     }
     return body.data as T
   }
 
   return {
+    ping: () => call<PingResult>('ping'),
     getBooks: (params = {}) => call<GetBooksResult>('getBooks', params satisfies GetBooksParams),
     getBook: (id) => call<Book>('getBook', { id }),
     searchBooks: (query) => call<Book[]>('searchBooks', { query }),
@@ -181,3 +188,8 @@ export function createApiClient(transport: Transport = defaultTransport): ApiCli
 }
 
 export const api: ApiClient = createApiClient()
+
+/** Verify a not-yet-saved connection: does this URL (and key) reach a Spine backend? */
+export function probeConnection(target: ConnectionTarget, transport: Transport = defaultTransport): Promise<PingResult> {
+  return createApiClient(transport, () => target).ping()
+}

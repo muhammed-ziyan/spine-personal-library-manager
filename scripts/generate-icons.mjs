@@ -13,8 +13,10 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const outDir = join(root, 'public', 'icons')
 mkdirSync(outDir, { recursive: true })
 
-const ACCENT = [0xb9, 0x55, 0x3b]
-const PAPER = [0xff, 0xf8, 0xf3]
+const ACCENT = [0xc6, 0x71, 0x39]
+const PAPER = [0xf5, 0xea, 0xd8]
+const SAGE = [0xcc, 0xdb, 0xb2]
+const PEACH = [0xff, 0xe1, 0xd0]
 
 function crc32(buf) {
   let c
@@ -74,15 +76,6 @@ function roundedRect(px, py, cx, cy, hw, hh, r) {
   return outside + Math.min(Math.max(dx, dy), 0) - r
 }
 
-/** Same, but the rectangle is rotated by `angle` radians around its centre. */
-function rotatedRect(px, py, cx, cy, hw, hh, r, angle) {
-  const s = Math.sin(-angle)
-  const c = Math.cos(-angle)
-  const x = px - cx
-  const y = py - cy
-  return roundedRect(x * c - y * s, x * s + y * c, 0, 0, hw, hh, r)
-}
-
 function coverage(d) {
   // Anti-alias over ~1px.
   return Math.min(1, Math.max(0, 0.5 - d))
@@ -93,7 +86,7 @@ function mix(a, b, t) {
 }
 
 /**
- * Draw the mark: three book spines, the third leaning, on an accent tile.
+ * Draw the mark: three book spines on a terracotta tile.
  * `inset` scales the artwork so maskable icons keep it in the safe zone.
  */
 function makeIcon(size, { maskable = false, radiusRatio = 0.24 } = {}) {
@@ -121,15 +114,16 @@ function makeIcon(size, { maskable = false, radiusRatio = 0.24 } = {}) {
 
     // Spines
     const u = (v) => v * unit
+    // Three book spines of different heights, bottom-aligned, as on the launch screen.
     const shapes = [
-      { d: roundedRect(px, py, ox + u(18.5), oy + u(32), u(4.5), u(18), u(1.5)), alpha: 1 },
-      { d: roundedRect(px, py, ox + u(31.5), oy + u(32), u(4.5), u(18), u(1.5)), alpha: 0.86 },
-      { d: rotatedRect(px, py, ox + u(45.5), oy + u(33.5), u(4), u(18), u(1.5), -0.26), alpha: 0.7 },
+      { d: roundedRect(px, py, ox + u(17.5), oy + u(32), u(4.5), u(20), u(1.6)), color: PAPER },
+      { d: roundedRect(px, py, ox + u(32), oy + u(36), u(4.5), u(16), u(1.6)), color: SAGE },
+      { d: roundedRect(px, py, ox + u(46.5), oy + u(33.5), u(4.5), u(18.5), u(1.6)), color: PEACH },
     ]
     let color = bg
     for (const shape of shapes) {
-      const a = coverage(shape.d) * shape.alpha
-      if (a > 0) color = mix(color, PAPER, a)
+      const a = coverage(shape.d)
+      if (a > 0) color = mix(color, shape.color, a)
     }
     return [...color, 255]
   })

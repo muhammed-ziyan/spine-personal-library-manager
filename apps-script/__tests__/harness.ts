@@ -140,14 +140,6 @@ export class MockSpreadsheet {
   }
 }
 
-export interface TokenInfo {
-  aud: string
-  iss: string
-  email: string
-  email_verified: string
-  exp: number
-}
-
 export interface ApiEnvelopeResult {
   ok: boolean
   data?: unknown
@@ -160,32 +152,21 @@ export interface Backend {
   props: Map<string, string>
   cache: Map<string, string>
   lock: { acquired: number; released: number; failNext: boolean }
-  tokens: Map<string, TokenInfo | 'invalid'>
-  readonly fetchCalls: number
   setup: () => void
   ctx: vm.Context
 }
 
 export interface BackendOptions {
-  allowedEmails?: string
-  clientId?: string
-  /** Custom tokeninfo resolver (used by the dev backend to accept locally-minted tokens). */
-  resolveToken?: (token: string) => TokenInfo | null
+  /** Optional ACCESS_KEY Script Property. Unset = the deployment URL alone grants access. */
+  accessKey?: string
 }
-
-export const CLIENT_ID = 'test-client-id.apps.googleusercontent.com'
-export const OWNER = 'owner@example.com'
 
 export function createBackend(options: BackendOptions = {}): Backend {
   const spreadsheet = new MockSpreadsheet()
-  const props = new Map<string, string>([
-    ['GOOGLE_CLIENT_ID', options.clientId ?? CLIENT_ID],
-    ['ALLOWED_EMAILS', options.allowedEmails ?? OWNER],
-  ])
+  const props = new Map<string, string>()
+  if (options.accessKey) props.set('ACCESS_KEY', options.accessKey)
   const cache = new Map<string, string>()
   const lock = { acquired: 0, released: 0, failNext: false }
-  const tokens = new Map<string, TokenInfo | 'invalid'>()
-  const state = { fetchCalls: 0 }
 
   const sandbox: Record<string, unknown> = {
     SpreadsheetApp: {
@@ -224,18 +205,6 @@ export function createBackend(options: BackendOptions = {}): Backend {
         },
         hasLock: () => lock.acquired > lock.released,
       }),
-    },
-    UrlFetchApp: {
-      fetch: (url: string) => {
-        state.fetchCalls += 1
-        const token = decodeURIComponent(url.split('id_token=')[1] ?? '')
-        let info: TokenInfo | 'invalid' | null | undefined = tokens.get(token)
-        if (info === undefined && options.resolveToken) info = options.resolveToken(token)
-        if (!info || info === 'invalid') {
-          return { getResponseCode: () => 400, getContentText: () => JSON.stringify({ error: 'invalid_token' }) }
-        }
-        return { getResponseCode: () => 200, getContentText: () => JSON.stringify(info) }
-      },
     },
     ContentService: {
       MimeType: { JSON: 'application/json' },
@@ -282,10 +251,6 @@ export function createBackend(options: BackendOptions = {}): Backend {
     props,
     cache,
     lock,
-    tokens,
-    get fetchCalls() {
-      return state.fetchCalls
-    },
     setup: () => (ctx.setupSpreadsheet as () => void)(),
     ctx,
   }
@@ -293,22 +258,9 @@ export function createBackend(options: BackendOptions = {}): Backend {
   return backend
 }
 
-/** Register a valid Google ID token for `email` and return it. */
-export function issueToken(backend: Backend, email = OWNER, overrides: Partial<TokenInfo> = {}): string {
-  const token = `tok.${Math.random().toString(36).slice(2)}.${Date.now()}`
-  backend.tokens.set(token, {
-    aud: CLIENT_ID,
-    iss: 'https://accounts.google.com',
-    email,
-    email_verified: 'true',
-    exp: Math.floor(Date.now() / 1000) + 3600,
-    ...overrides,
-  })
-  return token
-}
-
-export function request(backend: Backend, action: string, payload: unknown = {}, idToken?: string) {
-  return backend.handle({ action, payload, idToken: idToken ?? issueToken(backend) })
+/** Send one action. `key` is only attached when given, mirroring the real client. */
+export function request(backend: Backend, action: string, payload: unknown = {}, key?: string) {
+  return backend.handle(key === undefined ? { action, payload } : { action, payload, key })
 }
 
 export const sampleBook = {

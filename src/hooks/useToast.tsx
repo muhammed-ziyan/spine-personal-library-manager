@@ -2,21 +2,28 @@ import { createContext, useCallback, useContext, useMemo, useRef, useState, type
 
 export type ToastTone = 'neutral' | 'success' | 'danger'
 
+export interface ToastAction {
+  label: string
+  to: string
+}
+
 export interface ToastMessage {
   id: number
   text: string
   tone: ToastTone
+  action?: ToastAction
 }
 
 interface ToastContextValue {
   toasts: ToastMessage[]
-  show: (text: string, tone?: ToastTone) => void
+  show: (text: string, tone?: ToastTone, action?: ToastAction) => void
   dismiss: (id: number) => void
 }
 
 const ToastContext = createContext<ToastContextValue | null>(null)
 
 const TOAST_DURATION_MS = 2800
+const TOAST_WITH_ACTION_MS = 4500
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ToastMessage[]>([])
@@ -27,10 +34,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const show = useCallback(
-    (text: string, tone: ToastTone = 'neutral') => {
+    (text: string, tone: ToastTone = 'neutral', action?: ToastAction) => {
       const id = ++counter.current
-      setToasts((current) => [...current.slice(-2), { id, text, tone }])
-      window.setTimeout(() => dismiss(id), TOAST_DURATION_MS)
+      setToasts((current) => [...current.slice(-1), { id, text, tone, action }])
+      window.setTimeout(() => dismiss(id), action ? TOAST_WITH_ACTION_MS : TOAST_DURATION_MS)
     },
     [dismiss],
   )

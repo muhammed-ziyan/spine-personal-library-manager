@@ -1,4 +1,4 @@
-import { Icon } from '@/components'
+import { Logo } from '@/components'
 import { config } from '@/services/config'
 import styles from './SetupPage.module.css'
 
@@ -9,11 +9,11 @@ export function SetupPage() {
   return (
     <main className={styles.screen}>
       <div className={styles.card}>
-        <span className={styles.logo} aria-hidden="true">
-          <Icon name="library" size={30} />
-        </span>
+        <Logo />
         <h1 className={styles.title}>Almost there</h1>
-        <p className={styles.text}>Spine isn't connected to a library yet. Add the following to a <code>.env</code> file and restart the app:</p>
+        <p className={styles.text}>
+          Spine isn't connected to a library yet. Add the following to a <code>.env</code> file and restart the app:
+        </p>
         <ul className={styles.list}>
           {missing.map((key) => (
             <li key={key}>

@@ -1,8 +1,14 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { Button, Icon, InputField, Modal, PageHeader } from '@/components'
+import { Button, Icon, InputField, Modal, PageHeader, type IconName } from '@/components'
 import { parseIsbn } from '@/utils/isbn'
 import styles from './AddPage.module.css'
+
+const OPTIONS: Array<{ to?: string; action?: 'isbn'; icon: IconName; title: string; text: string; primary?: boolean }> = [
+  { to: '/scan', icon: 'scan', title: 'Scan barcode', text: 'Point your camera at the ISBN on the back cover.', primary: true },
+  { action: 'isbn', icon: 'keyboard', title: 'Enter ISBN', text: 'Type the number printed near the barcode.' },
+  { to: '/books/new', icon: 'pencil', title: 'Add manually', text: 'For books without a barcode, or when you’d rather type.' },
+]
 
 export function AddPage() {
   const navigate = useNavigate()
@@ -24,42 +30,34 @@ export function AddPage() {
   }
 
   return (
-    <main className="page">
-      <PageHeader title="Add a book" display />
+    <main className={['page', 'page--nav', styles.add].join(' ')}>
+      <PageHeader display title="Add a book" />
 
       <div className={styles.options}>
-        <Link to="/scan" className={[styles.option, styles.primary].join(' ')}>
-          <span className={styles.iconWrap}>
-            <Icon name="scan" size={28} />
-          </span>
-          <span className={styles.text}>
-            <span className={styles.title}>Scan barcode</span>
-            <span className={styles.description}>Point your camera at the ISBN barcode on the back cover.</span>
-          </span>
-          <Icon name="chevron-right" size={20} className={styles.chevron} />
-        </Link>
-
-        <button type="button" className={styles.option} onClick={() => setIsbnOpen(true)}>
-          <span className={styles.iconWrap}>
-            <Icon name="keyboard" size={26} />
-          </span>
-          <span className={styles.text}>
-            <span className={styles.title}>Enter ISBN</span>
-            <span className={styles.description}>Type the number printed near the barcode.</span>
-          </span>
-          <Icon name="chevron-right" size={20} className={styles.chevron} />
-        </button>
-
-        <Link to="/books/new" className={styles.option}>
-          <span className={styles.iconWrap}>
-            <Icon name="pencil" size={26} />
-          </span>
-          <span className={styles.text}>
-            <span className={styles.title}>Add manually</span>
-            <span className={styles.description}>For books without a barcode, or when you'd rather type.</span>
-          </span>
-          <Icon name="chevron-right" size={20} className={styles.chevron} />
-        </Link>
+        {OPTIONS.map((option) => {
+          const inner = (
+            <>
+              <span className={styles.iconWrap}>
+                <Icon name={option.icon} size={24} />
+              </span>
+              <span className={styles.text}>
+                <span className={styles.title}>{option.title}</span>
+                <span className={styles.description}>{option.text}</span>
+              </span>
+              <Icon name="chevron-right" size={18} className={styles.chevron} />
+            </>
+          )
+          const className = [styles.option, option.primary && styles.primary].filter(Boolean).join(' ')
+          return option.to ? (
+            <Link key={option.title} to={option.to} className={className}>
+              {inner}
+            </Link>
+          ) : (
+            <button key={option.title} type="button" className={className} onClick={() => setIsbnOpen(true)}>
+              {inner}
+            </button>
+          )
+        })}
       </div>
 
       <Modal open={isbnOpen} onClose={() => setIsbnOpen(false)} title="Enter ISBN" description="ISBN-10 or ISBN-13, with or without dashes.">

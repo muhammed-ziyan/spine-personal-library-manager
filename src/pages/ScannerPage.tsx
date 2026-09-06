@@ -1,15 +1,16 @@
-import { useCallback, useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Button, Icon, IconButton, InlineSpinner } from '@/components'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { Button, Icon, IconButton } from '@/components'
 import { DuplicateSheet } from '@/features/books/DuplicateSheet'
-import { isCameraSupported, useBarcodeScanner } from '@/features/scanner/useBarcodeScanner'
+import { isCameraSupported, unsupportedCameraMessage, useBarcodeScanner } from '@/features/scanner/useBarcodeScanner'
+import { usePreferences } from '@/hooks/usePreferences'
 import { api, describeError } from '@/services/api'
+import { openLibrary } from '@/services/openLibrary'
 import type { DuplicateMatch } from '@/types'
 import { formatIsbn, isBooklandEan, parseIsbn } from '@/utils/isbn'
 import styles from './ScannerPage.module.css'
 
 type Phase =
-  | { kind: 'intro' }
   | { kind: 'scanning' }
   | { kind: 'checking'; isbn: string }
   | { kind: 'duplicate'; isbn: string; duplicate: DuplicateMatch }
@@ -18,7 +19,9 @@ type Phase =
 
 export function ScannerPage() {
   const navigate = useNavigate()
-  const [phase, setPhase] = useState<Phase>({ kind: 'intro' })
+  const { haptics } = usePreferences()
+  const [phase, setPhase] = useState<Phase>({ kind: 'scanning' })
+  const supported = isCameraSupported()
 
   const checkIsbn = useCallback(
     async (isbn: string) => {
@@ -39,51 +42,137 @@ export function ScannerPage() {
 
   const onDetected = useCallback(
     (code: string) => {
-      if (navigator.vibrate) navigator.vibrate(40)
+      if (haptics && navigator.vibrate) navigator.vibrate(40)
       const parsed = parseIsbn(code)
       // Accept valid ISBN-13 (which all Bookland EANs are) and ISBN-10.
       if (parsed.valid && (parsed.kind === 'isbn10' || isBooklandEan(parsed.isbn))) {
+        // Warm the Open Library record while the duplicate check runs, so the
+        // add form is usually already filled in by the time it opens.
+        openLibrary.prefetch(parsed.isbn)
         void checkIsbn(parsed.isbn)
       } else {
         setPhase({ kind: 'invalid', code })
       }
     },
-    [checkIsbn],
+    [checkIsbn, haptics],
   )
 
   const scanner = useBarcodeScanner({ onDetected })
+  const started = useRef(false)
 
-  const beginScan = async () => {
+  const beginScan = useCallback(async () => {
     setPhase({ kind: 'scanning' })
     await scanner.start()
-  }
+  }, [scanner])
 
   const scanAgain = () => {
     scanner.reset()
     void beginScan()
   }
 
-  // Leaving the screen stops the camera (handled by the hook's unmount cleanup).
+  // The camera opens as soon as the screen does; the browser asks for permission the first time.
+  useEffect(() => {
+    if (started.current || !supported) return
+    started.current = true
+    void beginScan()
+  }, [beginScan, supported])
+
+  // Leaving the screen stops the camera (handled by the hook's unmount cleanup too).
   useEffect(() => {
     return () => scanner.stop()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const showVideo = phase.kind === 'scanning' && scanner.status !== 'error'
-  const supported = isCameraSupported()
+  const close = () => (window.history.length > 1 ? navigate(-1) : navigate('/add'))
+  const cameraError = phase.kind === 'scanning' && scanner.status === 'error' && scanner.error
+  const showVideo = supported && phase.kind !== 'duplicate' && !cameraError
+
+  let card: React.ReactNode = null
+  if (!supported) {
+    card = (
+      <ScanCard icon="camera-off" title="Camera not available" text={unsupportedCameraMessage()}>
+        <Button to="/add?enter=isbn" icon="keyboard" block replace>
+          Enter ISBN Manually
+        </Button>
+        <Button to="/books/new" variant="ghost" block replace>
+          Add Without ISBN
+        </Button>
+      </ScanCard>
+    )
+  } else if (cameraError) {
+    card = (
+      <ScanCard
+        icon="camera-off"
+        title={cameraError.kind === 'denied' ? 'Camera access needed' : cameraError.kind === 'unsupported' ? 'Camera not supported' : "Couldn't start the camera"}
+        text={cameraError.message}
+      >
+        {cameraError.kind !== 'unsupported' && (
+          <Button icon="refresh" block onClick={scanAgain}>
+            Try Again
+          </Button>
+        )}
+        <Button to="/add?enter=isbn" variant="secondary" icon="keyboard" block replace>
+          Enter ISBN Manually
+        </Button>
+      </ScanCard>
+    )
+  } else if (phase.kind === 'checking') {
+    card = (
+      <div className={styles.detected} aria-live="polite">
+        <span className={styles.detectedTick}>
+          <Icon name="check" size={22} strokeWidth={3} />
+        </span>
+        <div className={styles.detectedText}>
+          <div className={styles.detectedLabel}>ISBN detected</div>
+          <div className={styles.detectedIsbn}>{formatIsbn(phase.isbn)}</div>
+        </div>
+        <span className={styles.detectedSpinner} role="status" aria-label="Checking your library" />
+      </div>
+    )
+  } else if (phase.kind === 'invalid') {
+    card = (
+      <ScanCard icon="alert" title="That isn't a book barcode" text={`We read ${phase.code}, which isn't a valid ISBN. Book barcodes usually start with 978 or 979.`}>
+        <Button icon="scan" block onClick={scanAgain}>
+          Scan Again
+        </Button>
+        <Button to="/add?enter=isbn" variant="secondary" icon="keyboard" block replace>
+          Enter ISBN Manually
+        </Button>
+      </ScanCard>
+    )
+  } else if (phase.kind === 'check-failed') {
+    card = (
+      <ScanCard icon="alert" title="Couldn't check your library" text={phase.message}>
+        <Button icon="refresh" block onClick={() => void checkIsbn(phase.isbn)}>
+          Try Again
+        </Button>
+        <Button to={`/books/new?isbn=${phase.isbn}`} variant="secondary" block replace>
+          Continue Anyway
+        </Button>
+        <Button variant="ghost" block onClick={scanAgain} className={styles.ghostOnDark}>
+          Scan Again
+        </Button>
+      </ScanCard>
+    )
+  }
 
   return (
     <main className={styles.screen}>
+      <span className={styles.glow} aria-hidden="true" />
+      {/* The video element is always mounted so the scanner can attach to it. */}
+      <video ref={scanner.videoRef} className={styles.video} playsInline muted autoPlay hidden={!showVideo} aria-label="Camera preview" />
+
       <header className={styles.topBar}>
-        <IconButton icon="close" label="Close scanner" tone="surface" onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/add'))} />
-        <h1 className={styles.heading}>Scan ISBN</h1>
-        <span className={styles.spacer} />
+        <IconButton icon="close" label="Close scanner" tone="dim" onClick={close} />
+        <h1 className={[styles.heading, phase.kind === 'duplicate' && styles.headingDim].filter(Boolean).join(' ')}>Scan ISBN</h1>
+        {scanner.torchSupported ? (
+          <IconButton icon="torch" label={scanner.torchOn ? 'Turn torch off' : 'Turn torch on'} tone="dim" onClick={() => void scanner.toggleTorch()} aria-pressed={scanner.torchOn} className={scanner.torchOn ? styles.torchOn : undefined} />
+        ) : (
+          <span className={styles.spacer} />
+        )}
       </header>
 
       <div className={styles.viewport}>
-        {/* The video element is always mounted so the scanner can attach to it. */}
-        <video ref={scanner.videoRef} className={styles.video} playsInline muted autoPlay hidden={!showVideo} aria-label="Camera preview" />
-
         {showVideo && (
           <>
             <div className={styles.reticle} aria-hidden="true">
@@ -91,116 +180,21 @@ export function ScannerPage() {
               <span className={styles.cornerTR} />
               <span className={styles.cornerBL} />
               <span className={styles.cornerBR} />
-              {scanner.status === 'scanning' && <span className={styles.laser} />}
+              {scanner.status === 'scanning' && phase.kind === 'scanning' && <span className={styles.laser} />}
             </div>
             <p className={styles.hint} role="status">
-              {scanner.status === 'starting' ? 'Starting camera…' : 'Line up the barcode inside the frame'}
+              {scanner.status === 'starting' ? 'Starting the camera…' : 'Point your camera at the barcode on the back of the book.'}
             </p>
           </>
         )}
+      </div>
 
-        {phase.kind === 'intro' && (
-          <div className={styles.panel}>
-            <span className={styles.panelIcon}>
-              <Icon name="scan" size={32} />
-            </span>
-            <h2 className={styles.panelTitle}>Scan the barcode</h2>
-            <p className={styles.panelText}>
-              {supported
-                ? "Spine will ask to use your camera the first time. Barcodes are read on your device — nothing is recorded or uploaded."
-                : "This browser can't access the camera. You can still enter the ISBN by hand."}
-            </p>
-            <div className={styles.panelActions}>
-              {supported && (
-                <Button size="lg" block icon="scan" onClick={beginScan}>
-                  Start Scanning
-                </Button>
-              )}
-              <Button to="/add?enter=isbn" variant="secondary" block icon="keyboard">
-                Enter ISBN Manually
-              </Button>
-              <Button to="/books/new" variant="ghost" block>
-                Add Without ISBN
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {phase.kind === 'scanning' && scanner.status === 'error' && scanner.error && (
-          <div className={styles.panel} role="alert">
-            <span className={[styles.panelIcon, styles.panelIconDanger].join(' ')}>
-              <Icon name="camera-off" size={30} />
-            </span>
-            <h2 className={styles.panelTitle}>
-              {scanner.error.kind === 'denied' ? 'Camera access needed' : scanner.error.kind === 'unsupported' ? 'Camera not supported' : "Couldn't start the camera"}
-            </h2>
-            <p className={styles.panelText}>{scanner.error.message}</p>
-            <div className={styles.panelActions}>
-              {scanner.error.kind !== 'unsupported' && (
-                <Button size="lg" block icon="refresh" onClick={scanAgain}>
-                  Try Again
-                </Button>
-              )}
-              <Button to="/add?enter=isbn" variant="secondary" block icon="keyboard">
-                Enter ISBN Manually
-              </Button>
-              <Button to="/books/new" variant="ghost" block>
-                Add Without ISBN
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {phase.kind === 'checking' && (
-          <div className={styles.panel} aria-live="polite">
-            <InlineSpinner label="Checking your library" />
-            <h2 className={styles.panelTitle}>{formatIsbn(phase.isbn)}</h2>
-            <p className={styles.panelText}>Checking whether you already own this book…</p>
-          </div>
-        )}
-
-        {phase.kind === 'invalid' && (
-          <div className={styles.panel} role="alert">
-            <span className={[styles.panelIcon, styles.panelIconWarning].join(' ')}>
-              <Icon name="alert" size={30} />
-            </span>
-            <h2 className={styles.panelTitle}>That isn't a book barcode</h2>
-            <p className={styles.panelText}>
-              We read <strong className={styles.code}>{phase.code}</strong>, which isn't a valid ISBN. Book barcodes usually start with 978 or 979.
-            </p>
-            <div className={styles.panelActions}>
-              <Button size="lg" block icon="scan" onClick={scanAgain}>
-                Scan Again
-              </Button>
-              <Button to="/add?enter=isbn" variant="secondary" block icon="keyboard">
-                Enter ISBN Manually
-              </Button>
-              <Button to="/books/new" variant="ghost" block>
-                Add Without ISBN
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {phase.kind === 'check-failed' && (
-          <div className={styles.panel} role="alert">
-            <span className={[styles.panelIcon, styles.panelIconDanger].join(' ')}>
-              <Icon name="alert" size={30} />
-            </span>
-            <h2 className={styles.panelTitle}>Couldn't check your library</h2>
-            <p className={styles.panelText}>{phase.message}</p>
-            <div className={styles.panelActions}>
-              <Button size="lg" block icon="refresh" onClick={() => void checkIsbn(phase.isbn)}>
-                Try Again
-              </Button>
-              <Button to={`/books/new?isbn=${phase.isbn}`} variant="secondary" block>
-                Continue Anyway
-              </Button>
-              <Button variant="ghost" block onClick={scanAgain}>
-                Scan Again
-              </Button>
-            </div>
-          </div>
+      <div className={styles.bottom}>
+        {card}
+        {(phase.kind === 'scanning' || phase.kind === 'checking') && !cameraError && supported && (
+          <Link to="/add?enter=isbn" replace className={styles.manualLink}>
+            Enter ISBN manually
+          </Link>
         )}
       </div>
 
@@ -212,5 +206,22 @@ export function ScannerPage() {
         }}
       />
     </main>
+  )
+}
+
+function ScanCard({ icon, title, text, children }: { icon: 'alert' | 'camera-off'; title: string; text: string; children: React.ReactNode }) {
+  return (
+    <div className={styles.card} role="alert">
+      <div className={styles.cardHeader}>
+        <span className={styles.cardIcon}>
+          <Icon name={icon} size={22} />
+        </span>
+        <div>
+          <div className={styles.cardTitle}>{title}</div>
+          <div className={styles.cardText}>{text}</div>
+        </div>
+      </div>
+      <div className={styles.cardActions}>{children}</div>
+    </div>
   )
 }

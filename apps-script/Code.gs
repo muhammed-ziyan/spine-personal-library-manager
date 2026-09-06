@@ -2,7 +2,7 @@
  * Spine API — HTTP entry points and request routing.
  *
  * Request envelope (POST body, text/plain, JSON):
- *   { "action": "getBooks", "payload": { ... }, "idToken": "<Google ID token>" }
+ *   { "action": "getBooks", "payload": { ... }, "key": "<access key, only if the owner set one>" }
  *
  * Response envelope:
  *   { "ok": true,  "data": ... }
@@ -12,6 +12,7 @@
 /** Action → handler. Nothing outside this table is reachable from the network. */
 function actionHandlers_() {
   return {
+    ping: ping_,
     getBooks: getBooks_,
     getBook: getBook_,
     searchBooks: searchBooks_,
@@ -59,9 +60,9 @@ function handleRequest_(rawBody) {
       return failure_('BAD_REQUEST', 'Unknown action.');
     }
 
-    // Authenticate before touching any data.
-    var email = authenticate_(envelope.idToken);
-    enforceRateLimit_(email);
+    // Check the optional access key before touching any data.
+    authorize_(envelope);
+    enforceRateLimit_();
 
     var payload = envelope.payload === undefined ? {} : envelope.payload;
     if (!isPlainObject_(payload)) return failure_('BAD_REQUEST', 'Malformed payload.');
@@ -82,4 +83,16 @@ function failure_(code, message, details) {
   var error = { code: code, message: message };
   if (details) error.details = details;
   return { ok: false, error: error };
+}
+
+/**
+ * Connection check used by the app when a library is first connected: confirms
+ * the URL (and access key, if any) reach a Spine backend and names the sheet.
+ */
+function ping_() {
+  return {
+    version: SPINE_VERSION,
+    library: getSpreadsheet_().getName(),
+    books: readBookColumn_('id').length,
+  };
 }

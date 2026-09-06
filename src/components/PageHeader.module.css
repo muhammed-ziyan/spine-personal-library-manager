@@ -1,39 +1,67 @@
-.header {
+.display {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  margin-bottom: var(--space-5);
-  min-height: var(--tap-min);
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 40px;
 }
 
-.display {
-  align-items: flex-end;
-  margin-bottom: var(--space-6);
-}
-
-.back {
-  flex-shrink: 0;
-}
-
-.text {
-  flex: 1;
+.displayText {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   min-width: 0;
 }
 
-.title {
-  font-size: var(--text-lg);
+.displayTitle {
+  font-size: 34px;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.displayTitle {
-  font-size: var(--text-2xl);
 }
 
 .actions {
   display: flex;
   align-items: center;
-  gap: var(--space-1);
+  gap: 8px;
   flex-shrink: 0;
+}
+
+.compact {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 40px;
+}
+
+.side {
+  display: flex;
+  align-items: center;
+  flex: none;
+  min-width: 40px;
+}
+
+.sideEnd {
+  justify-content: flex-end;
+}
+
+.sideWide {
+  min-width: 64px;
+}
+
+.spacer {
+  display: block;
+  width: 40px;
+  height: 40px;
+}
+
+.title {
+  flex: 1;
+  min-width: 0;
+  font-size: 22px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }

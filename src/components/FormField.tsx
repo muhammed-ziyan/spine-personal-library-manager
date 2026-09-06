@@ -7,6 +7,8 @@ interface FieldShellProps {
   hint?: string
   error?: string
   optional?: boolean
+  /** `quiet`: inputs sitting on a surface card take the page colour instead. */
+  tone?: 'default' | 'quiet'
   children: (ids: { id: string; describedBy: string | undefined }) => ReactNode
 }
 
@@ -20,7 +22,7 @@ function FieldShell({ label, hint, error, optional, children }: FieldShellProps)
     <div className={[styles.field, error && styles.hasError].filter(Boolean).join(' ')}>
       <label htmlFor={id} className={styles.label}>
         {label}
-        {optional && <span className={styles.optional}>Optional</span>}
+        {optional && <span className={styles.optional}> · optional</span>}
       </label>
       {children({ id, describedBy })}
       {hint && !error && (
@@ -39,11 +41,18 @@ function FieldShell({ label, hint, error, optional, children }: FieldShellProps)
 
 type InputFieldProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'id'> & Omit<FieldShellProps, 'children'>
 
-export const InputField = forwardRef<HTMLInputElement, InputFieldProps>(function InputField({ label, hint, error, optional, className, ...rest }, ref) {
+export const InputField = forwardRef<HTMLInputElement, InputFieldProps>(function InputField({ label, hint, error, optional, tone = 'default', className, ...rest }, ref) {
   return (
     <FieldShell label={label} hint={hint} error={error} optional={optional}>
       {({ id, describedBy }) => (
-        <input ref={ref} id={id} aria-describedby={describedBy} aria-invalid={error ? true : undefined} className={[styles.input, className].filter(Boolean).join(' ')} {...rest} />
+        <input
+          ref={ref}
+          id={id}
+          aria-describedby={describedBy}
+          aria-invalid={error ? true : undefined}
+          className={[styles.input, tone === 'quiet' && styles.quiet, className].filter(Boolean).join(' ')}
+          {...rest}
+        />
       )}
     </FieldShell>
   )
@@ -51,11 +60,17 @@ export const InputField = forwardRef<HTMLInputElement, InputFieldProps>(function
 
 type TextareaFieldProps = Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, 'id'> & Omit<FieldShellProps, 'children'>
 
-export function TextareaField({ label, hint, error, optional, className, ...rest }: TextareaFieldProps) {
+export function TextareaField({ label, hint, error, optional, tone = 'default', className, ...rest }: TextareaFieldProps) {
   return (
     <FieldShell label={label} hint={hint} error={error} optional={optional}>
       {({ id, describedBy }) => (
-        <textarea id={id} aria-describedby={describedBy} aria-invalid={error ? true : undefined} className={[styles.input, styles.textarea, className].filter(Boolean).join(' ')} {...rest} />
+        <textarea
+          id={id}
+          aria-describedby={describedBy}
+          aria-invalid={error ? true : undefined}
+          className={[styles.input, styles.textarea, tone === 'quiet' && styles.quiet, className].filter(Boolean).join(' ')}
+          {...rest}
+        />
       )}
     </FieldShell>
   )
@@ -72,12 +87,20 @@ type SelectFieldProps = Omit<SelectHTMLAttributes<HTMLSelectElement>, 'id'> &
     placeholder?: string
   }
 
-export function SelectField({ label, hint, error, optional, options, placeholder, className, ...rest }: SelectFieldProps) {
+export function SelectField({ label, hint, error, optional, options, placeholder, tone = 'default', className, value, ...rest }: SelectFieldProps) {
+  const empty = value === '' || value === undefined
   return (
     <FieldShell label={label} hint={hint} error={error} optional={optional}>
       {({ id, describedBy }) => (
         <div className={styles.selectWrap}>
-          <select id={id} aria-describedby={describedBy} aria-invalid={error ? true : undefined} className={[styles.input, styles.select, className].filter(Boolean).join(' ')} {...rest}>
+          <select
+            id={id}
+            value={value}
+            aria-describedby={describedBy}
+            aria-invalid={error ? true : undefined}
+            className={[styles.input, styles.select, empty && styles.placeholder, tone === 'quiet' && styles.quiet, className].filter(Boolean).join(' ')}
+            {...rest}
+          >
             {placeholder !== undefined && <option value="">{placeholder}</option>}
             {options.map((option) => (
               <option key={option.value} value={option.value}>
@@ -85,9 +108,67 @@ export function SelectField({ label, hint, error, optional, options, placeholder
               </option>
             ))}
           </select>
-          <Icon name="chevron-down" size={18} className={styles.selectIcon} />
+          <Icon name="chevron-down" size={16} className={styles.selectIcon} />
         </div>
       )}
     </FieldShell>
+  )
+}
+
+interface SegmentedProps<T extends string> {
+  label?: string
+  options: Array<{ value: T; label: string }>
+  value: T
+  onChange: (value: T) => void
+  /** Stretch across the container (form fields) or hug content (settings rows). */
+  block?: boolean
+  size?: 'sm' | 'md'
+}
+
+/** Pill segmented control — the mockup's `.seg`. */
+export function Segmented<T extends string>({ label, options, value, onChange, block, size = 'md' }: SegmentedProps<T>) {
+  const name = useId()
+  return (
+    <div className={[styles.seg, block && styles.segBlock, size === 'sm' && styles.segSm].filter(Boolean).join(' ')} role="radiogroup" aria-label={label}>
+      {options.map((option) => (
+        <label key={option.value} className={[styles.segOpt, option.value === value && styles.segChecked].filter(Boolean).join(' ')}>
+          <input type="radio" name={name} value={option.value} checked={option.value === value} onChange={() => onChange(option.value)} className={styles.segInput} />
+          {option.label}
+        </label>
+      ))}
+    </div>
+  )
+}
+
+interface ToggleProps {
+  checked: boolean
+  onChange: (checked: boolean) => void
+  label: string
+}
+
+/** 52×32 switch with a cream knob. */
+export function Toggle({ checked, onChange, label }: ToggleProps) {
+  return (
+    <button type="button" role="switch" aria-checked={checked} aria-label={label} className={[styles.toggle, checked && styles.toggleOn].filter(Boolean).join(' ')} onClick={() => onChange(!checked)}>
+      <span className={styles.knob} />
+    </button>
+  )
+}
+
+interface RadioRowProps {
+  name: string
+  label: string
+  checked: boolean
+  onChange: () => void
+}
+
+/** 44px radio row used inside sheets ("Sort by"). */
+export function RadioRow({ name, label, checked, onChange }: RadioRowProps) {
+  return (
+    <label className={styles.radio}>
+      <input type="radio" name={name} checked={checked} onChange={onChange} className={styles.segInput} />
+      <span className={styles.dot} aria-hidden="true" />
+      {label}
+    </label>
   )
 }
