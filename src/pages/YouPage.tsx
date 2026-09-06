@@ -1,27 +1,31 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { Avatar, Button, FilterChip, Icon, Modal, Segmented, Tag, TextButton, Toggle, type IconName } from '@/components'
-import { useAuth } from '@/hooks/useAuth'
+import { Avatar, Button, FilterChip, Icon, InputField, Modal, Segmented, Tag, TextButton, Toggle, type IconName } from '@/components'
+import { ConnectionForm } from '@/features/connections/ConnectionForm'
+import { useConnection } from '@/hooks/useConnection'
 import { useLibrary } from '@/hooks/useLibrary'
 import { usePreferences, type ThemePreference, type ViewPreference } from '@/hooks/usePreferences'
 import { useToast } from '@/hooks/useToast'
+import { describeConnectionUrl, type Connection } from '@/services/connections'
 import { booksToCsv, formatMonthYear, pluralize, relativeTime } from '@/utils/format'
 import styles from './YouPage.module.css'
 
 const GOAL_PRESETS = [24, 36, 50, 75, 100]
 
 export function YouPage() {
-  const { session, signOut } = useAuth()
+  const { active, connections, switchTo, update, remove } = useConnection()
   const { books, stats, state, lastSyncedAt, refresh } = useLibrary()
   const prefs = usePreferences()
   const toast = useToast()
   const [goalOpen, setGoalOpen] = useState(false)
-  const [signOutOpen, setSignOutOpen] = useState(false)
+  const [addOpen, setAddOpen] = useState(false)
+  const [manageOpen, setManageOpen] = useState(false)
+  const [disconnectOpen, setDisconnectOpen] = useState(false)
 
   const year = new Date().getFullYear()
   const goal = prefs.goalFor(year)
-  const name = session?.user.name?.trim() || 'You'
-  const firstName = name.split(' ')[0]
+  // The Gate only renders this page with an active connection; the fallback keeps TypeScript honest.
+  const name = active?.label ?? 'You'
 
   const since = useMemo(() => {
     const earliest = books.reduce<string | null>((min, b) => (min === null || b.dateAdded < min ? b.dateAdded : min), null)
@@ -42,6 +46,25 @@ export function YouPage() {
   const openGoal = () => {
     setDraftGoal(goal ?? 50)
     setGoalOpen(true)
+  }
+
+  const [draftLabel, setDraftLabel] = useState('')
+  const [draftKey, setDraftKey] = useState('')
+  const openManage = () => {
+    setDraftLabel(active?.label ?? '')
+    setDraftKey(active?.accessKey ?? '')
+    setManageOpen(true)
+  }
+  const saveManage = () => {
+    if (!active) return
+    update(active.id, { label: draftLabel, accessKey: draftKey })
+    setManageOpen(false)
+    toast.show('Library updated', 'success')
+  }
+
+  const switchLibrary = (connection: Connection) => {
+    switchTo(connection.id)
+    toast.show(`Switched to ${connection.label}`)
   }
 
   const exportCsv = () => {
@@ -66,12 +89,14 @@ export function YouPage() {
   const monthsLeft = Math.max(1, 12 - new Date().getMonth())
   const perMonth = Math.max(1, Math.ceil(remaining / monthsLeft))
 
+  const sheetSubtitle = state === 'loading' ? 'Syncing…' : `Synced ${relativeTime(lastSyncedAt)} · ${pluralize(books.length, 'row')}`
+
   return (
     <main className={['page', 'page--nav', styles.you].join(' ')}>
       <header className={styles.profile}>
-        <Avatar name={name} picture={session?.user.picture} size="lg" />
+        <Avatar name={name} size="lg" />
         <div className={styles.profileText}>
-          <h1 className={styles.name}>{firstName}</h1>
+          <h1 className={styles.name}>{name}</h1>
           <p className={styles.since}>{since ? `Collecting since ${since}` : 'Your shelves start here'}</p>
         </div>
       </header>
@@ -117,8 +142,8 @@ export function YouPage() {
             as="button"
             icon="upload"
             tone="reading"
-            title="Google Sheet"
-            subtitle={state === 'loading' ? 'Syncing…' : `Synced ${relativeTime(lastSyncedAt)} · ${pluralize(books.length, 'row')}`}
+            title={active?.sheetName || 'Google Sheet'}
+            subtitle={sheetSubtitle}
             trailing={<Tag>{state === 'error' ? 'Retry' : 'Connected'}</Tag>}
             onClick={() => void refresh()}
           />
@@ -169,13 +194,27 @@ export function YouPage() {
         </div>
       </section>
 
-      <section className={styles.group} aria-labelledby="account-heading">
-        <h2 id="account-heading" className="section-title section-title--sm">
-          Account
+      <section className={styles.group} aria-labelledby="libraries-heading">
+        <h2 id="libraries-heading" className="section-title section-title--sm">
+          Libraries
         </h2>
         <div className={styles.card}>
-          <Row icon="user" tone="unread" title={name} subtitle={session?.user.email ?? ''} />
-          <Row as="button" icon="logout" tone="unread" title="Sign out" subtitle="Only clears this device" onClick={() => setSignOutOpen(true)} />
+          {connections.map((connection) => {
+            const isActive = connection.id === active?.id
+            return (
+              <Row
+                key={connection.id}
+                as="button"
+                icon="library"
+                tone={isActive ? 'reading' : 'unread'}
+                title={connection.label}
+                subtitle={isActive ? `${describeConnectionUrl(connection.url)} · Tap to manage` : describeConnectionUrl(connection.url)}
+                trailing={isActive ? <Tag tone="reading">Active</Tag> : undefined}
+                onClick={() => (isActive ? openManage() : switchLibrary(connection))}
+              />
+            )
+          })}
+          <Row as="button" icon="plus" tone="unread" title="Connect another library" subtitle="Switch sheets to switch accounts" onClick={() => setAddOpen(true)} />
         </div>
       </section>
 
@@ -235,26 +274,78 @@ export function YouPage() {
         </div>
       </Modal>
 
+      <Modal open={addOpen} onClose={() => setAddOpen(false)} title="Connect a library" description="Paste the web-app URL of another Spine deployment. Your current library stays saved on this device.">
+        <ConnectionForm
+          tone="quiet"
+          onConnected={(connection) => {
+            setAddOpen(false)
+            toast.show(`Connected to ${connection.label}`, 'success')
+          }}
+        />
+      </Modal>
+
       <Modal
-        open={signOutOpen}
-        onClose={() => setSignOutOpen(false)}
+        open={manageOpen}
+        onClose={() => setManageOpen(false)}
+        title={active?.label ?? 'This library'}
+        description={active ? describeConnectionUrl(active.url) : undefined}
+        actions={
+          <>
+            <Button size="lg" block onClick={saveManage} disabled={!draftLabel.trim()}>
+              Save
+            </Button>
+            <Button
+              variant="ghost"
+              block
+              className={styles.disconnect}
+              onClick={() => {
+                setManageOpen(false)
+                setDisconnectOpen(true)
+              }}
+            >
+              Disconnect this library
+            </Button>
+          </>
+        }
+      >
+        <div className={styles.manageForm}>
+          <InputField label="Name" tone="quiet" maxLength={60} value={draftLabel} onChange={(e) => setDraftLabel(e.target.value)} />
+          <InputField
+            label="Access key"
+            optional
+            tone="quiet"
+            hint="Must match ACCESS_KEY in the script's properties, if you set one."
+            autoCapitalize="off"
+            autoCorrect="off"
+            spellCheck={false}
+            autoComplete="off"
+            value={draftKey}
+            onChange={(e) => setDraftKey(e.target.value)}
+          />
+        </div>
+      </Modal>
+
+      <Modal
+        open={disconnectOpen}
+        onClose={() => setDisconnectOpen(false)}
         variant="dialog"
         icon="logout"
-        title="Sign out of Spine?"
-        description="Your library stays safe in your Google Sheet. Signing out only clears this device."
+        title={`Disconnect ${active?.label ?? 'this library'}?`}
+        description="Your books stay safe in the Google Sheet. This only removes the connection from this device."
         actions={
           <>
             <Button
+              variant="danger"
               block
               onClick={() => {
-                setSignOutOpen(false)
-                signOut()
+                setDisconnectOpen(false)
+                if (active) remove(active.id)
               }}
             >
-              Sign Out
+              Disconnect
             </Button>
-            <Button variant="secondary" block onClick={() => setSignOutOpen(false)}>
-              Stay Signed In
+            <Button variant="secondary" block onClick={() => setDisconnectOpen(false)}>
+              Keep it
             </Button>
           </>
         }

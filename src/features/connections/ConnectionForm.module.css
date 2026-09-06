@@ -5,11 +5,13 @@
   width: 100%;
 }
 
+/* Same tinted-fill treatment as the status pills; the palette never goes red. */
 .error {
   padding: 12px 14px;
   border-radius: 16px;
-  background: var(--color-danger-100, #ffe1d0);
-  color: var(--color-danger-900, #643312);
+  background: var(--color-accent-200);
+  color: var(--color-accent-900);
   font-size: 13px;
+  font-weight: 600;
   line-height: 1.45;
 }

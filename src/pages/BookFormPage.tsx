@@ -50,9 +50,10 @@ export function BookFormPage() {
   const [deleting, setDeleting] = useState(false)
   const [lookup, setLookup] = useState<Lookup>({ kind: 'idle' })
   const [attempt, setAttempt] = useState(0)
-  // Set once the user has taken over the form ("Enter details myself" / "Clear"),
-  // so a late reply can never overwrite what they are typing.
-  const dismissed = useRef(false)
+  // The ISBN the user has taken the form over for ("Enter the details myself" /
+  // "Clear"), so a late reply can never overwrite what they are typing — and a
+  // different ISBN later on still gets looked up.
+  const dismissedFor = useRef('')
 
   useEffect(() => {
     if (!id || existing) return
@@ -72,17 +73,18 @@ export function BookFormPage() {
   // Ask Open Library what this ISBN is before showing an empty form. The
   // scanner usually warms the same request, so this is often already resolved.
   useEffect(() => {
-    if (editing || !scannedIsbn || dismissed.current) return
+    if (editing || !scannedIsbn || dismissedFor.current === scannedIsbn) return
     let cancelled = false
+    const done = () => cancelled || dismissedFor.current === scannedIsbn
     setLookup({ kind: 'loading' })
     openLibrary
       .lookup(scannedIsbn)
       .then((metadata) => {
-        if (cancelled || dismissed.current) return
+        if (done()) return
         setLookup(metadata ? { kind: 'found', metadata } : { kind: 'missing' })
       })
       .catch((err) => {
-        if (cancelled || dismissed.current) return
+        if (done()) return
         setLookup({ kind: 'failed', message: describeLookupError(err) })
       })
     return () => {
@@ -98,12 +100,12 @@ export function BookFormPage() {
 
   /** Drop the suggested details and start from a blank form. */
   function clearPrefill() {
-    dismissed.current = true
+    dismissedFor.current = scannedIsbn
     setLookup({ kind: 'idle' })
   }
 
   function retryLookup() {
-    dismissed.current = false
+    dismissedFor.current = ''
     setAttempt((n) => n + 1)
   }
 

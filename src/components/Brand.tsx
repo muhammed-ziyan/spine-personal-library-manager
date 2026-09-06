@@ -42,12 +42,12 @@ export function Splash({ status = 'Syncing your library…' }: SplashProps) {
   )
 }
 
-/** 40px round avatar with the user's initial in the heading face, or their photo. */
-export function Avatar({ name, picture, size = 'sm' }: { name?: string; picture?: string; size?: 'sm' | 'lg' }) {
+/** 40px round avatar with the connected library's initial in the heading face. */
+export function Avatar({ name, size = 'sm' }: { name?: string; size?: 'sm' | 'lg' }) {
   const initial = (name?.trim()[0] ?? '?').toUpperCase()
   return (
     <span className={[styles.avatar, size === 'lg' && styles.avatarLg].filter(Boolean).join(' ')} aria-hidden="true">
-      {picture ? <img src={picture} alt="" referrerPolicy="no-referrer" /> : initial}
+      {initial}
     </span>
   )
 }

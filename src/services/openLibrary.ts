@@ -107,6 +107,10 @@ function count(value: unknown): number | null {
   return rounded > 0 ? rounded : null
 }
 
+function firstNonEmpty(...lists: string[][]): string[] {
+  return lists.find((list) => list.length) ?? []
+}
+
 /** `data` returns `[{ name }]`, `details` returns `['name']`. Accept both. */
 function names(value: unknown): string[] {
   if (!Array.isArray(value)) return []
@@ -275,22 +279,23 @@ function buildMetadata(isbn: string, data: Record<string, unknown> | null, detai
   // says nothing about this copy unless there is exactly one.
   const workLanguages = Array.isArray(work?.language) ? work.language : []
 
-  const authors = names(data?.authors)
-  const publishers = names(data?.publishers)
-  const subjects = names(data?.subjects)
+  // Edition first, work last: the user is holding one particular printing.
+  const authors = firstNonEmpty(names(data?.authors), names(detail?.authors), names(work?.author_name))
+  const publishers = firstNonEmpty(names(data?.publishers), names(detail?.publishers))
+  const subjects = firstNonEmpty(names(data?.subjects), names(detail?.subjects), names(work?.subject))
 
   return {
     isbn,
     title,
     subtitle: str(data?.subtitle) || str(detail?.subtitle),
-    authors: authors.length ? authors : names(detail?.authors).length ? names(detail?.authors) : names(work?.author_name),
-    publisher: (publishers.length ? publishers : names(detail?.publishers))[0] ?? '',
+    authors,
+    publisher: publishers[0] ?? '',
     publicationYear: parsePublishYear(str(data?.publish_date) || str(detail?.publish_date)),
     pages: count(data?.number_of_pages) ?? count(detail?.number_of_pages),
     edition: str(detail?.edition_name),
     format: mapFormat(detail?.physical_format),
     language: mapLanguage(detail?.languages) || (workLanguages.length === 1 ? mapLanguage(workLanguages) : ''),
-    subjects: subjects.length ? subjects : names(detail?.subjects).length ? names(detail?.subjects) : names(work?.subject),
+    subjects,
     coverUrl: coverFromData(data) || coverFromDetails(detail) || coverFromSearch(work),
     sourceUrl: secureUrl(str(data?.url) || str(details?.info_url)) || `${API_ORIGIN}/isbn/${isbn}`,
   }

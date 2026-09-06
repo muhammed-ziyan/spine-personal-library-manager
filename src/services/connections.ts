@@ -82,9 +82,13 @@ function newId(): string {
 export function normalizeAppsScriptUrl(input: string): string | null {
   const trimmed = input.trim()
   if (!trimmed) return null
-  const withScheme = /^[a-z]+:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
   try {
-    const parsed = new URL(withScheme)
+    // "/api"-style paths resolve against the app's own origin (the dev proxy); anything else needs a host.
+    const parsed = trimmed.startsWith('/')
+      ? new URL(trimmed, typeof location !== 'undefined' ? location.origin : undefined)
+      : new URL(/^[a-z]+:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`)
+    // Chromium percent-encodes stray characters in a hostname rather than rejecting it ("not a url" → not%20a%20url).
+    if (!/^[a-z0-9.-]+$/i.test(parsed.hostname)) return null
     parsed.search = ''
     parsed.hash = ''
     const href = parsed.href.replace(/\/$/, '')

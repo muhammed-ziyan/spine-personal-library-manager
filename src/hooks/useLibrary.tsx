@@ -6,7 +6,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { api, ApiError, toApiError } from '@/services/api'
 import type { AddBookParams, Book, BookPatch, BookStatus, Genre, LibraryStats } from '@/types'
-import { useAuth } from './useAuth'
 
 export type LoadState = 'idle' | 'loading' | 'ready' | 'error'
 
@@ -34,7 +33,6 @@ function sortByDateAddedDesc(books: Book[]): Book[] {
 }
 
 export function LibraryProvider({ children }: { children: ReactNode }) {
-  const { status: authStatus } = useAuth()
   const [books, setBooks] = useState<Book[]>([])
   const [genres, setGenres] = useState<Genre[]>([])
   const [stats, setStats] = useState<LibraryStats | null>(null)
@@ -70,14 +68,10 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  // The provider is keyed on the active connection (App.tsx), so mounting means "sync this library".
   useEffect(() => {
-    if (authStatus === 'signed-in') void refresh()
-    if (authStatus === 'signed-out') {
-      setBooks([])
-      setStats(null)
-      setState('idle')
-    }
-  }, [authStatus, refresh])
+    void refresh()
+  }, [refresh])
 
   const getBook = useCallback((id: string) => books.find((book) => book.id === id), [books])
 

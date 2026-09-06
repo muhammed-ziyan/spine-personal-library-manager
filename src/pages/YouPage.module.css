@@ -180,6 +180,17 @@ a.row:hover {
   color: var(--color-neutral-600);
 }
 
+/* ---- Libraries ---- */
+.manageForm {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.disconnect {
+  color: var(--color-accent-800);
+}
+
 /* ---- Goal sheet ---- */
 .stepper {
   display: flex;
