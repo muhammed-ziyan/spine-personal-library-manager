@@ -72,6 +72,7 @@ const CSV_COLUMNS: Array<[keyof Book, string]> = [
   ['title', 'Title'],
   ['author', 'Author'],
   ['genre', 'Genre'],
+  ['subgenre', 'Subgenre'],
   ['language', 'Language'],
   ['publisher', 'Publisher'],
   ['publicationYear', 'Year'],

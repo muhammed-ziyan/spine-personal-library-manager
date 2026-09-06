@@ -168,7 +168,7 @@ export function LibraryPage() {
         !loading &&
         results.length > 0 && (
           <p className={styles.resultCount} role="status">
-            {pluralize(results.length, 'result')} · matching title, author or ISBN
+            {pluralize(results.length, 'result')} · matching title, author, shelf or ISBN
           </p>
         )
       ) : (

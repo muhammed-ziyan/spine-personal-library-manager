@@ -123,6 +123,7 @@ export function BookDetailPage() {
           <div className={styles.tile}>
             <span className={styles.tileLabel}>Genre</span>
             <span className={styles.tileValue}>{book.genre || '—'}</span>
+            {book.subgenre && <span className={styles.tileCaption}>{book.subgenre}</span>}
           </div>
           <div className={styles.tile}>
             <span className={styles.tileLabel}>Language</span>

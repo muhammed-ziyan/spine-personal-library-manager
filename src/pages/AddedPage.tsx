@@ -34,7 +34,8 @@ export function AddedPage() {
   }
 
   const total = stats?.total ?? books.length
-  const filed = [book.genre ? `Filed under ${book.genre}` : null, `marked ${book.status}`].filter(Boolean).join(', ')
+  const shelf = [book.genre, book.subgenre].filter(Boolean).join(' · ')
+  const filed = [shelf ? `Filed under ${shelf}` : null, `marked ${book.status}`].filter(Boolean).join(', ')
 
   const done = () => {
     toast.show('Added to your library', 'success', { label: 'View', to: `/books/${book.id}` })

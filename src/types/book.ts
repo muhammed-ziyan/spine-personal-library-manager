@@ -20,6 +20,8 @@ export interface Book {
   title: string
   author: string
   genre: string
+  /** Optional refinement of the genre, e.g. Fantasy → Epic Fantasy. */
+  subgenre: string
   language: string
   publisher: string
   publicationYear: number | null
@@ -44,6 +46,8 @@ export type BookPatch = Partial<BookInput>
 
 export interface Genre {
   name: string
+  /** Subgenres offered for this genre; may be empty. */
+  subgenres: string[]
 }
 
 export interface ReadingHistoryEntry {

@@ -220,6 +220,29 @@ describe('open library field mapping', () => {
     expect(matchGenre(['Habit'], [])).toBe('')
   })
 
+  it('only suggests subgenres the matched genre lists', () => {
+    const shelves = [{ name: 'Fantasy', subgenres: ['Epic Fantasy', 'Urban Fantasy'] }, { name: 'Fiction', subgenres: [] }]
+    const base = {
+      isbn: ISBN13,
+      title: 'A Book',
+      subtitle: '',
+      authors: ['Someone'],
+      publisher: '',
+      publicationYear: null,
+      pages: null,
+      edition: '',
+      format: '',
+      language: '',
+      coverUrl: '',
+      sourceUrl: '',
+    }
+    expect(metadataToInput({ ...base, subjects: ['Fantasy', 'Epic fantasy'] }, shelves).subgenre).toBe('Epic Fantasy')
+    // A subgenre belonging to another genre is never borrowed.
+    expect(metadataToInput({ ...base, subjects: ['Fiction', 'Epic fantasy'] }, shelves).subgenre).toBe('')
+    // Nothing to suggest when the genre itself did not match.
+    expect(metadataToInput({ ...base, subjects: ['Cookery'] }, shelves).subgenre).toBe('')
+  })
+
   it('turns a record into form values, joining the subtitle onto the title', () => {
     const input = metadataToInput(
       {
@@ -233,17 +256,18 @@ describe('open library field mapping', () => {
         edition: '1st edition',
         format: 'Hardcover',
         language: 'English',
-        subjects: ['Self-Help'],
+        subjects: ['Self-Help', 'Habits'],
         coverUrl: 'https://covers.openlibrary.org/b/id/8739161-L.jpg',
         sourceUrl: 'https://openlibrary.org/books/OL26211088M/Atomic_Habits',
       },
-      [{ name: 'Self-help' }],
+      [{ name: 'Self-help', subgenres: ['Habits', 'Productivity'] }],
     )
 
     expect(input).toEqual({
       title: 'Atomic Habits: An Easy & Proven Way',
       author: 'James Clear, A. Second, B. Third',
       genre: 'Self-help',
+      subgenre: 'Habits',
       language: 'English',
       publisher: 'Avery',
       publicationYear: 2018,

@@ -309,6 +309,7 @@ export const sampleBook = {
   title: 'Atomic Habits',
   author: 'James Clear',
   genre: 'Self Help',
+  subgenre: 'Habits',
   language: 'English',
   publisher: 'Avery',
   publicationYear: 2018,

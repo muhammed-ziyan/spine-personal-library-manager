@@ -34,9 +34,16 @@ var BOOK_COLUMNS = [
   { key: 'notes', header: 'Notes', type: 'string' },
   { key: 'coverUrl', header: 'Cover URL', type: 'string' },
   { key: 'updatedAt', header: 'Updated At', type: 'date' },
+  // Appended, not slotted next to Genre: ensureSheet_ never inserts a column,
+  // so a mid-list key would silently re-map every column after it in existing sheets.
+  { key: 'subgenre', header: 'Subgenre', type: 'string' },
 ];
 
-var GENRE_COLUMNS = [{ key: 'name', header: 'Genre', type: 'string' }];
+var GENRE_COLUMNS = [
+  { key: 'name', header: 'Genre', type: 'string' },
+  /** Comma-separated subgenres for this genre; blank is fine. */
+  { key: 'subgenres', header: 'Subgenres', type: 'string' },
+];
 
 var SETTINGS_COLUMNS = [
   { key: 'key', header: 'Key', type: 'string' },
@@ -52,7 +59,7 @@ var HISTORY_COLUMNS = [
 
 /** Fields the client may set on create/update. Everything else is server-owned. */
 var BOOK_WRITABLE_FIELDS = [
-  'isbn', 'title', 'author', 'genre', 'language', 'publisher', 'publicationYear',
+  'isbn', 'title', 'author', 'genre', 'subgenre', 'language', 'publisher', 'publicationYear',
   'edition', 'pages', 'format', 'status', 'rating', 'notes', 'coverUrl',
 ];
 

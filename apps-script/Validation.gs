@@ -54,6 +54,7 @@ function validateBookInput_(input) {
   validateString_(errors, out, input, 'title', LIMITS.title, true, false);
   validateString_(errors, out, input, 'author', LIMITS.author, true, false);
   validateString_(errors, out, input, 'genre', LIMITS.genre, false, false);
+  validateString_(errors, out, input, 'subgenre', LIMITS.subgenre, false, false);
   validateString_(errors, out, input, 'language', LIMITS.language, false, false);
   validateString_(errors, out, input, 'publisher', LIMITS.publisher, false, false);
   validateString_(errors, out, input, 'edition', LIMITS.edition, false, false);

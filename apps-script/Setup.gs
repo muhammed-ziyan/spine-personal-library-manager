@@ -14,7 +14,11 @@ function setupSpreadsheet() {
 
   var genres = ensureSheet_(ss, SHEETS.GENRES, headersFor_(GENRE_COLUMNS));
   if (genres.getLastRow() < 2) {
-    genres.getRange(2, 1, DEFAULT_GENRES.length, 1).setValues(DEFAULT_GENRES.map(function (g) { return [g]; }));
+    genres.getRange(2, 1, DEFAULT_GENRES.length, GENRE_COLUMNS.length).setValues(DEFAULT_GENRES.map(function (g) {
+      return [g, defaultSubgenresFor_(g).join(', ')];
+    }));
+  } else {
+    backfillSubgenres_(genres);
   }
 
   var settings = ensureSheet_(ss, SHEETS.SETTINGS, headersFor_(SETTINGS_COLUMNS));
@@ -39,6 +43,40 @@ function setupSpreadsheet() {
   }
 
   Logger.log('Spine spreadsheet is ready.');
+}
+
+/** Default subgenres for a genre name, matched case-insensitively. [] when unknown. */
+function defaultSubgenresFor_(name) {
+  var needle = String(name || '').trim().toLowerCase();
+  if (!needle) return [];
+  var keys = Object.keys(DEFAULT_SUBGENRES);
+  for (var i = 0; i < keys.length; i++) {
+    if (keys[i].toLowerCase() === needle) return DEFAULT_SUBGENRES[keys[i]];
+  }
+  return [];
+}
+
+/**
+ * Fill the Subgenres column for libraries created before it existed. Only blank
+ * cells are written, so hand-edited lists survive every re-run — and a genre the
+ * user invented themselves is simply left alone.
+ */
+function backfillSubgenres_(sheet) {
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return;
+  var col = GENRE_COLUMNS.length; // Subgenres is the last Genres column.
+  var rows = sheet.getRange(2, 1, lastRow - 1, col).getValues();
+  var filled = 0;
+  for (var i = 0; i < rows.length; i++) {
+    var name = String(rows[i][0] || '').trim();
+    var existing = String(rows[i][col - 1] || '').trim();
+    if (!name || existing) continue;
+    var defaults = defaultSubgenresFor_(name);
+    if (!defaults.length) continue;
+    sheet.getRange(i + 2, col).setValue(defaults.join(', '));
+    filled++;
+  }
+  if (filled) Logger.log('Filled subgenres for ' + filled + ' genre(s).');
 }
 
 function ensureSheet_(ss, name, headers) {

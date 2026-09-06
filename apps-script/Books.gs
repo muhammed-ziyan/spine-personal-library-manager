@@ -138,6 +138,7 @@ function addBook_(payload) {
       title: input.title,
       author: input.author,
       genre: input.genre,
+      subgenre: input.subgenre,
       language: input.language,
       publisher: input.publisher,
       publicationYear: input.publicationYear,

@@ -105,6 +105,10 @@
 .tileCaption {
   font-size: 12px;
   color: var(--color-neutral-600);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
 }
 
 .info {

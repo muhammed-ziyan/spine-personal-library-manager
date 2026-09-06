@@ -44,6 +44,10 @@ export function BookForm({ mode, initial, genres, submitLabel, pending, onSubmit
   const [errors, setErrors] = useState<FieldErrors>({})
   const [showMore, setShowMore] = useState(expanded || mode === 'manual' || Boolean(initial.publisher || initial.notes || initial.pages))
   const [customLanguage, setCustomLanguage] = useState(() => Boolean(initial.language) && !COMMON_LANGUAGES.includes(initial.language))
+  const [customSubgenre, setCustomSubgenre] = useState(() => {
+    const list = genres.find((g) => g.name === initial.genre)?.subgenres ?? []
+    return Boolean(initial.subgenre) && !list.includes(initial.subgenre)
+  })
 
   const lockedIsbn = (mode === 'scanned' || mode === 'copy') && Boolean(initial.isbn)
 
@@ -51,6 +55,15 @@ export function BookForm({ mode, initial, genres, submitLabel, pending, onSubmit
   if (values.genre && !genres.some((g) => g.name === values.genre)) {
     genreOptions.unshift({ value: values.genre, label: values.genre })
   }
+
+  const subgenreList = genres.find((g) => g.name === values.genre)?.subgenres ?? []
+  const subgenreOptions = subgenreList.map((s) => ({ value: s, label: s }))
+  if (values.subgenre && !subgenreList.includes(values.subgenre)) {
+    subgenreOptions.unshift({ value: values.subgenre, label: values.subgenre })
+  }
+  subgenreOptions.push({ value: '__other', label: 'Other…' })
+  // Free text when the genre carries no list of its own, or the reader asked for it.
+  const freeSubgenre = customSubgenre || subgenreList.length === 0
 
   function update<K extends keyof BookInput>(key: K, value: BookInput[K]) {
     setValues((current) => ({ ...current, [key]: value }))
@@ -75,6 +88,7 @@ export function BookForm({ mode, initial, genres, submitLabel, pending, onSubmit
       notes: values.notes.trim(),
       coverUrl: values.coverUrl.trim(),
       language: values.language.trim(),
+      subgenre: values.subgenre.trim(),
     }
     const nextErrors = validateBookInput(cleaned)
     setErrors(nextErrors)
@@ -125,7 +139,19 @@ export function BookForm({ mode, initial, genres, submitLabel, pending, onSubmit
         <InputField label="Author" value={values.author} onChange={(e) => update('author', e.target.value)} error={errors.author} maxLength={LIMITS.author} autoComplete="off" placeholder="Who wrote it?" required />
 
         <div className={styles.twoUp}>
-          <SelectField label="Genre" value={values.genre} onChange={(e) => update('genre', e.target.value)} options={genreOptions} placeholder="Choose" error={errors.genre} />
+          <SelectField
+            label="Genre"
+            value={values.genre}
+            onChange={(e) => {
+              update('genre', e.target.value)
+              // The subgenres belong to the old genre — start that choice over.
+              update('subgenre', '')
+              setCustomSubgenre(false)
+            }}
+            options={genreOptions}
+            placeholder="Choose"
+            error={errors.genre}
+          />
           {customLanguage ? (
             <InputField label="Language" value={values.language} onChange={(e) => update('language', e.target.value)} error={errors.language} maxLength={LIMITS.language} autoComplete="off" placeholder="Type it" autoFocus />
           ) : (
@@ -142,6 +168,39 @@ export function BookForm({ mode, initial, genres, submitLabel, pending, onSubmit
               placeholder="Choose"
               error={errors.language}
             />
+          )}
+
+          {values.genre && (
+            <div className={styles.spanTwo}>
+              {freeSubgenre ? (
+                <InputField
+                  label="Subgenre"
+                  optional
+                  value={values.subgenre}
+                  onChange={(e) => update('subgenre', e.target.value)}
+                  error={errors.subgenre}
+                  maxLength={LIMITS.subgenre}
+                  autoComplete="off"
+                  placeholder="Type it"
+                  autoFocus={customSubgenre}
+                />
+              ) : (
+                <SelectField
+                  label="Subgenre"
+                  optional
+                  value={values.subgenre}
+                  onChange={(e) => {
+                    if (e.target.value === '__other') {
+                      setCustomSubgenre(true)
+                      update('subgenre', '')
+                    } else update('subgenre', e.target.value)
+                  }}
+                  options={subgenreOptions}
+                  placeholder="Choose"
+                  error={errors.subgenre}
+                />
+              )}
+            </div>
           )}
         </div>
 

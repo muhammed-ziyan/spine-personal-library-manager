@@ -37,7 +37,7 @@ function matchesQuery(book: Book, query: string): boolean {
   const q = query.trim().toLowerCase()
   if (!q) return true
   if (book.title.toLowerCase().includes(q) || book.author.toLowerCase().includes(q)) return true
-  if (book.genre.toLowerCase().includes(q) || book.language.toLowerCase().includes(q)) return true
+  if (book.genre.toLowerCase().includes(q) || book.subgenre.toLowerCase().includes(q) || book.language.toLowerCase().includes(q)) return true
   const isbnQuery = normalizeIsbn(q)
   return isbnQuery.length >= 4 && book.isbn.includes(isbnQuery)
 }

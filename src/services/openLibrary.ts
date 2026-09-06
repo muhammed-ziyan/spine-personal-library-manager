@@ -355,10 +355,17 @@ export function metadataToInput(metadata: BookMetadata, genres: Array<Genre | st
   const genreNames = genres.map((genre) => (typeof genre === 'string' ? genre : genre.name))
   const title = metadata.subtitle ? `${metadata.title}: ${metadata.subtitle}` : metadata.title
 
+  // Same rule as the genre: only ever suggest a subgenre the sheet already lists
+  // for the genre we just matched.
+  const genre = matchGenre(metadata.subjects, genreNames)
+  const subgenreNames = genres.find((g) => typeof g !== 'string' && g.name === genre)
+  const subgenre = subgenreNames && typeof subgenreNames !== 'string' ? matchGenre(metadata.subjects, subgenreNames.subgenres) : ''
+
   return {
     title: clamp(title, LIMITS.title),
     author: clamp(metadata.authors.slice(0, 3).join(', '), LIMITS.author),
-    genre: matchGenre(metadata.subjects, genreNames),
+    genre,
+    subgenre,
     language: metadata.language,
     publisher: clamp(metadata.publisher, LIMITS.publisher),
     publicationYear: metadata.publicationYear,

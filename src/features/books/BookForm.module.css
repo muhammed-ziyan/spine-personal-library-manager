@@ -117,3 +117,8 @@
   justify-content: center;
   padding: 4px;
 }
+
+/* A field that takes the whole width of a .twoUp row (Subgenre under Genre). */
+.spanTwo {
+  grid-column: 1 / -1;
+}

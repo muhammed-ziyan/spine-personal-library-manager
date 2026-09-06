@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createBackend, request, sampleBook, TEST_CREDENTIALS, type Backend } from './harness'
 
+interface Genre {
+  name: string
+  subgenres: string[]
+}
+
 let backend: Backend
 
 beforeEach(() => {
@@ -23,10 +28,58 @@ describe('setup', () => {
     expect((genres.data as Array<{ name: string }>).length).toBe(26)
   })
 
+  it('seeds subgenres alongside each genre', () => {
+    const genres = request(backend, 'getGenres').data as Genre[]
+    expect(genres.find((g) => g.name === 'Fantasy')?.subgenres).toContain('Epic Fantasy')
+    // 'Other' deliberately carries none, and the field falls back to free text.
+    expect(genres.find((g) => g.name === 'Other')?.subgenres).toEqual([])
+  })
+
   it('is idempotent', () => {
     addBook()
     backend.setup()
     expect((request(backend, 'getBooks').data as { total: number }).total).toBe(1)
+  })
+
+  it('reads a Books sheet written before the Subgenre column existed', () => {
+    const id = (addBook().data as { id: string }).id
+    const books = backend.spreadsheet.getSheetByName('Books')!
+    // Rewind to the old 19-column layout: header and row both lose the last cell.
+    books.rows = books.rows.map((row) => row.slice(0, 19))
+
+    backend.setup()
+
+    const book = request(backend, 'getBook', { id }).data as Record<string, unknown>
+    expect(book.subgenre).toBe('')
+    // Nothing shifted: the columns before it still line up.
+    expect(book.title).toBe(sampleBook.title)
+    expect(book.updatedAt).toBeTruthy()
+
+    // And the column is writable from here on.
+    const updated = request(backend, 'updateBook', { id, patch: { subgenre: 'Habits' } })
+    expect((updated.data as Record<string, unknown>).subgenre).toBe('Habits')
+    expect((updated.data as Record<string, unknown>).coverUrl).toBe('')
+  })
+
+  it('backfills subgenres for a library created before the column existed', () => {
+    const sheet = backend.spreadsheet.getSheetByName('Genres')!
+    // Rewind to the old one-column layout, with one list the reader curated.
+    sheet.rows = [['Genre'], ['Fantasy'], ['Mystery'], ['Shelf of my own'], ['Horror']]
+    sheet.getRange(3, 2).setValue('Only mine')
+
+    backend.setup()
+
+    const byName = new Map((request(backend, 'getGenres').data as Genre[]).map((g) => [g.name, g.subgenres]))
+    expect(sheet.getRange(1, 1, 1, 2).getValues()[0]).toEqual(['Genre', 'Subgenres'])
+    expect(byName.get('Fantasy')).toContain('Epic Fantasy')
+    // A hand-edited cell is never overwritten, and an invented genre is left alone.
+    expect(byName.get('Mystery')).toEqual(['Only mine'])
+    expect(byName.get('Shelf of my own')).toEqual([])
+
+    // Still idempotent: a second run changes nothing.
+    const before = JSON.stringify(sheet.rows)
+    backend.setup()
+    expect(JSON.stringify(sheet.rows)).toBe(before)
   })
 })
 
@@ -218,6 +271,25 @@ describe('addBook validation', () => {
     expect(book.rating).toBeNull()
     expect(typeof book.dateAdded).toBe('string')
     expect(book.dateAdded).toBe(book.updatedAt)
+  })
+
+  it('stores, returns and updates the subgenre', () => {
+    const id = (addBook().data as { id: string }).id
+    expect((request(backend, 'getBook', { id }).data as Record<string, unknown>).subgenre).toBe('Habits')
+
+    const updated = request(backend, 'updateBook', { id, patch: { subgenre: 'Productivity' } })
+    expect(updated.ok).toBe(true)
+    expect((updated.data as Record<string, unknown>).subgenre).toBe('Productivity')
+    // The whole row still lines up after the appended column.
+    expect((updated.data as Record<string, unknown>).title).toBe(sampleBook.title)
+
+    // Free text is accepted: the sheet's list is a suggestion, not a constraint.
+    const custom = request(backend, 'updateBook', { id, patch: { subgenre: 'Weird Fiction' } })
+    expect((custom.data as Record<string, unknown>).subgenre).toBe('Weird Fiction')
+
+    const tooLong = request(backend, 'updateBook', { id, patch: { subgenre: 'x'.repeat(101) } })
+    expect(tooLong.ok).toBe(false)
+    expect(tooLong.error?.details?.subgenre).toBeDefined()
   })
 
   it('requires a title', () => {

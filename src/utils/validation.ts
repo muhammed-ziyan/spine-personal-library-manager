@@ -11,6 +11,7 @@ export const LIMITS = {
   author: 300,
   publisher: 300,
   genre: 100,
+  subgenre: 100,
   language: 100,
   edition: 100,
   format: 50,
@@ -38,6 +39,7 @@ export function validateBookInput(input: BookInput): FieldErrors {
   }
 
   if (input.genre.length > LIMITS.genre) errors.genre = 'Genre is too long.'
+  if (input.subgenre.length > LIMITS.subgenre) errors.subgenre = 'Subgenre is too long.'
   if (input.language.length > LIMITS.language) errors.language = 'Language is too long.'
   if (input.publisher.length > LIMITS.publisher) errors.publisher = 'Publisher is too long.'
   if (input.edition.length > LIMITS.edition) errors.edition = 'Edition is too long.'
@@ -82,6 +84,7 @@ export function emptyBookInput(overrides: Partial<BookInput> = {}): BookInput {
     title: '',
     author: '',
     genre: '',
+    subgenre: '',
     language: '',
     publisher: '',
     publicationYear: null,

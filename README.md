@@ -56,7 +56,15 @@ In the editor, choose the function **`setupSpreadsheet`** at the top of the scre
 
 This creates four tabs (`Books`, `Genres`, `Settings`, `Reading History`), fills in a starter list of genres, and starts the book-ID counter. It is safe to run again later; existing books are left alone.
 
-You can edit the `Genres` tab whenever you like. The app reads it live.
+You can edit the `Genres` tab whenever you like. The app reads it live. It has two
+columns: **Genre** in column A, and **Subgenres** in column B — a comma-separated list
+(`Epic Fantasy, Urban Fantasy, Grimdark`) that becomes the Subgenre dropdown in the book
+form once that genre is chosen. Leave column B blank for a genre and the form simply
+offers a free-text Subgenre box instead.
+
+If your library predates the Subgenres column, run `setupSpreadsheet` once more: it adds
+the column and fills in defaults for the starter genres, without touching any list you
+have already written.
 
 ### 5. Choose your sign-in
 
