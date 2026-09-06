@@ -9,7 +9,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "lint": "eslint .",
-    "typecheck": "tsc -b --noEmit false --emitDeclarationOnly false --pretty",
+    "typecheck": "tsc -b",
     "test": "vitest run",
     "test:watch": "vitest",
     "dev:backend": "node scripts/dev-backend.ts",

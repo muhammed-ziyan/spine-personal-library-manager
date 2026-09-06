@@ -30,13 +30,14 @@ export function isLocalDevMode(): boolean {
 
 /**
  * Only ever talk to a Google Apps Script endpoint — or, in development builds
- * only, a localhost dev backend (scripts/dev-backend.ts).
+ * only, the local dev backend (scripts/dev-backend.ts), which may be reached
+ * via localhost or a LAN address when testing on a phone (`vite --host`).
  */
 export function isValidAppsScriptUrl(url: string): boolean {
   try {
     const parsed = new URL(url)
     if (parsed.protocol === 'https:' && parsed.hostname === 'script.google.com') return true
-    if (import.meta.env.DEV && (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1')) return true
+    if (import.meta.env.DEV && (parsed.protocol === 'http:' || parsed.protocol === 'https:')) return true
     return false
   } catch {
     return false
