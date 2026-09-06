@@ -259,6 +259,16 @@
     right: -120px;
     top: -160px;
   }
+
+  /* The headline's own half-leading already reads as a gap, so the header and
+     the hero each keep only a hairline of padding between them on a phone. */
+  .nav {
+    padding-bottom: 4px;
+  }
+
+  .hero {
+    padding-top: 0;
+  }
 }
 
 .heroTitle {
