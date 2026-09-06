@@ -2,6 +2,9 @@ import { Link } from 'react-router-dom'
 import { Icon } from '@/components'
 import styles from './LandingPage.module.css'
 
+const REPO_SLUG = 'muhammed-ziyan/spine-personal-library-manager'
+const REPO = `https://github.com/${REPO_SLUG}`
+
 /** The three books shown on the phone mock — illustration only, not real data. */
 const RECENT = [
   { title: 'Atomic Habits', author: 'James Clear', status: 'Unread', cover: 'var(--color-accent-700)' },
@@ -13,6 +16,15 @@ const CHIP: Record<string, { background: string; color: string }> = {
   Unread: { background: 'var(--status-unread-bg)', color: 'var(--status-unread-ink)' },
   Reading: { background: 'var(--status-reading-bg)', color: 'var(--status-reading-ink)' },
   Read: { background: 'var(--status-read-bg)', color: 'var(--status-read-ink)' },
+}
+
+/** The GitHub mark. Filled, so it does not fit the app's stroked Icon set. */
+function GitHubMark() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" focusable="false">
+      <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z" />
+    </svg>
+  )
 }
 
 /** The three-bar Spine mark, drawn inline so the landing page needs no assets. */
@@ -44,6 +56,9 @@ export function LandingPage() {
         </a>
         <a className={styles.navLink} href="#why">
           Why Spine
+        </a>
+        <a className={styles.navLink} href="#source">
+          Source
         </a>
         <Link className={[styles.btn, styles.btnPrimary, styles.btnNav].join(' ')} to="/signin">
           Get Spine
@@ -256,15 +271,82 @@ export function LandingPage() {
           </div>
         </section>
 
-        {/* ---- Quote ---- */}
-        <section className={styles.quote}>
-          <figure>
-            <blockquote>
-              &ldquo;I went through four hundred books on a Sunday. Found three I&apos;d bought twice, and one I&apos;d
-              been looking for since 2019.&rdquo;
-            </blockquote>
-            <figcaption>— Nadia, who owns a lot of Le Guin</figcaption>
-          </figure>
+        {/* ---- Open source ---- */}
+        <section className={styles.oss} id="source">
+          <span className={styles.kicker}>Open source</span>
+          <div className={styles.ossGrid}>
+            <div>
+              <h2 className={styles.ossTitle}>Built in the open. Run your own.</h2>
+              <p className={styles.ossBody}>
+                Spine is MIT-licensed, front to back. The app is a React PWA; the backend is a Google Apps Script web
+                app in front of a Google Sheet you own — so there is no server to rent and no database to keep alive.
+                Clone it, point it at your own sheet, and it is yours.
+              </p>
+              <div className={styles.ossActions}>
+                <a
+                  className={[styles.btn, styles.btnPrimary, styles.btnLg].join(' ')}
+                  href={REPO}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <GitHubMark />
+                  View on GitHub
+                </a>
+                <a
+                  className={[styles.btn, styles.btnSecondary, styles.btnLg].join(' ')}
+                  href={`${REPO}#deploy-your-own`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Read the setup guide
+                </a>
+              </div>
+            </div>
+
+            <div>
+              <dl className={styles.specs}>
+                <div className={styles.specRow}>
+                  <dt>Repository</dt>
+                  <dd>
+                    <a href={REPO} target="_blank" rel="noreferrer">
+                      github.com/{REPO_SLUG}
+                    </a>
+                  </dd>
+                </div>
+                <div className={styles.specRow}>
+                  <dt>Licence</dt>
+                  <dd>MIT — fork it, ship it, sell it.</dd>
+                </div>
+                <div className={styles.specRow}>
+                  <dt>Frontend</dt>
+                  <dd>React 18 · TypeScript · Vite · CSS Modules · installable PWA</dd>
+                </div>
+                <div className={styles.specRow}>
+                  <dt>Backend</dt>
+                  <dd>Google Apps Script (V8) over Google Sheets</dd>
+                </div>
+                <div className={styles.specRow}>
+                  <dt>Your data</dt>
+                  <dd>A spreadsheet in your own Drive. Barcodes are decoded on-device.</dd>
+                </div>
+                <div className={styles.specRow}>
+                  <dt>Issues</dt>
+                  <dd>
+                    <a href={`${REPO}/issues`} target="_blank" rel="noreferrer">
+                      Bugs and ideas welcome
+                    </a>
+                  </dd>
+                </div>
+              </dl>
+              <pre className={styles.clone}>
+                <code>
+                  <span className={styles.clonePrompt}>$ </span>git clone {REPO}.git
+                  {'\n'}
+                  <span className={styles.clonePrompt}>$ </span>npm install &amp;&amp; npm run dev
+                </code>
+              </pre>
+            </div>
+          </div>
         </section>
 
         {/* ---- Closing call to action ---- */}
@@ -291,6 +373,10 @@ export function LandingPage() {
           <span className={styles.footerBrand}>Spine</span>
           <a href="#how">How it works</a>
           <a href="#why">Why Spine</a>
+          <a href={REPO} target="_blank" rel="noreferrer">
+            GitHub
+          </a>
+          <span>MIT licensed</span>
           <Link to="/signin">Sign in</Link>
         </footer>
       </div>

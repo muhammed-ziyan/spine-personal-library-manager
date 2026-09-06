@@ -1,210 +1,172 @@
 # Spine
 
-Personal library management app. Scan the barcode on a book you own, type in a few details, and it's on your shelf — stored in a Google Sheet you control, at zero infrastructure cost.
+A personal library in your pocket. Scan the barcode on a book you own, add a few details if you like, and it lives on a shelf you control — a Google Sheet in your own Drive.
 
-Spine tracks **physical copies**: two editions of *The Hobbit* are two records with two IDs, even though they may share an ISBN.
+There is no server to rent and no database to keep alive. The website is a free [Vercel](https://vercel.com) app; the books live in a spreadsheet only you can open in Google Sheets. Spine is MIT-licensed: fork it, run it, make it yours.
 
-## Features
+Spine tracks **physical copies**. Two editions of *The Hobbit* are two records with two IDs, even if they share an ISBN.
 
-- Barcode scanning with the device camera (ISBN/EAN, decoded locally — nothing is uploaded)
-- ISBN-10 and ISBN-13 capture, normalisation and validation
-- Automatic book details from Open Library after a scan — title, author, publisher, year, pages, format, language and cover art, all editable before saving
-- Manual book entry for books without a barcode
-- Server-side duplicate detection with a "you already have this book → add another copy" flow
-- Individual physical-copy tracking with immutable, server-generated IDs (`BK-00001`)
-- Search by title, author or ISBN
-- Filters by status, genre and language; sort by title, author, date added or rating
-- List and grid views
-- Reading status (Unread / Reading / Read / On Hold / Abandoned) with a reading-history log
-- Ratings and notes
-- Installable PWA with a mobile-first, warm, minimal interface
-- Password sign-in checked by your own Apps Script — no Google OAuth, no third-party identity provider
+## What you get
 
-## Architecture
+- Scan a barcode with your phone camera (decoded on the device — the picture never leaves the phone)
+- Title, author, cover and more filled in from [Open Library](https://openlibrary.org), all editable before you save
+- Type a book in by hand when there is no barcode
+- A heads-up if you already own it, with the option to add another copy anyway
+- Search, filters, list and grid views
+- Reading status, star ratings, notes, and a quiet log of when a book changed status
+- Add to your home screen like a real app
+- A username and password you choose yourself — no Google login screen, no extra account
 
-```text
-React + TypeScript PWA (Vite, deployed to Vercel)
-        │  HTTPS — JSON envelope + session token
-        ▼
-Google Apps Script web app   ← checks the password, signs tokens, validates input
-        │
-        ▼
-Google Sheets                ← Books · Genres · Settings · Reading History
-```
+## Deploy your own
 
-- **Frontend** (`src/`): React 18, TypeScript, CSS Modules with centralised design tokens, React Router, `@zxing/browser` for barcode decoding, `vite-plugin-pwa` for the manifest and service worker.
-- **Backend** (`apps-script/`): plain Apps Script (V8). Every mutation is validated, ID generation and duplicate checks run under `LockService`, and user text is escaped so it can never become a spreadsheet formula.
-- **Sign-in without an identity provider**: one deployment serves one sheet, and its address is baked into the build (`VITE_APPS_SCRIPT_URL`). That address grants nothing — the backend refuses every action but `login` without a token. Signing in posts a username and password to your own Apps Script, which compares them against its Script Properties and returns an HMAC-signed token valid for 30 days. **No credential is ever present in the front-end bundle**, and there is no Google OAuth consent screen to sit through. See *Security*.
+You will end up with two things that talk to each other:
 
-```text
-src/
-├── app/          shell, routing, sign-in gate
-├── components/   BookCard, SearchBar, chips, Rating, Button, FormField, Modal, states…
-├── features/     auth (sign-in form), books (form, duplicate sheet), library (filtering), scanner (camera hook)
-├── hooks/        useSession, useLibrary, usePreferences, useToast
-├── pages/        Home, Library, Add, Scanner, BookForm, BookDetail, Stats, You, SignIn
-├── services/     api client, session store, config
-├── styles/       tokens.css, global.css
-├── types/        Book, BookStatus, LibraryStats, API contracts
-└── utils/        isbn, validation, formatting
-```
+1. A **Google Sheet** (with a small Apps Script attached) that holds your library.
+2. A **website** on Vercel that is the app itself.
+
+Both are free on the usual free plans. Give yourself about ten minutes, a Google account, and a GitHub account.
+
+### 1. Fork this repository
+
+On GitHub, open [this repo](https://github.com/muhammed-ziyan/spine-personal-library-manager) and click **Fork**. That gives you your own copy to deploy from. You can clone it to your computer later if you want; you do not need to, just to get a live app.
+
+### 2. Create the spreadsheet
+
+1. Go to [sheets.google.com](https://sheets.google.com) and start a new blank spreadsheet. Name it something like *Spine Library* — the app shows this name.
+2. Open **Extensions → Apps Script**. Google creates a script *bound* to this sheet, which is what you want: the backend can only ever see this one spreadsheet.
+
+Leave that Apps Script tab open. You will paste the backend into it next.
+
+### 3. Add the backend code
+
+In the Apps Script editor:
+
+1. Delete whatever is in the default `Code.gs` file.
+2. Create one file for each of these (the **+** next to *Files*, then *Script*) and paste in the matching file from this repo’s [`apps-script/`](apps-script/) folder:
+
+   `Auth.gs` · `Code.gs` · `Config.gs` · `Schema.gs` · `Security.gs` · `Validation.gs` · `Isbn.gs` · `Utils.gs` · `Books.gs` · `Genres.gs` · `Stats.gs` · `Setup.gs`
+
+3. Open **Project Settings** (the gear), tick *Show "appsscript.json" manifest file*, and replace that file with [`apps-script/appsscript.json`](apps-script/appsscript.json).
+
+If you would rather not copy-paste, [clasp](https://github.com/google/clasp) can push the folder for you after `clasp login` and `clasp clone <scriptId>`: from `apps-script/`, run `npx @google/clasp push`. The local `.clasp.json` stays off git, on purpose.
+
+### 4. Create the tabs
+
+In the editor, choose the function **`setupSpreadsheet`** at the top of the screen and click **Run**. The first time, Google will ask you to approve access to the spreadsheet — that is expected; say yes.
+
+This creates four tabs (`Books`, `Genres`, `Settings`, `Reading History`), fills in a starter list of genres, and starts the book-ID counter. It is safe to run again later; existing books are left alone.
+
+You can edit the `Genres` tab whenever you like. The app reads it live.
+
+### 5. Choose your sign-in
+
+This username and password are the only lock on your library, so pick a real password (twelve characters or more).
+
+In **Project Settings → Script Properties**, add two properties:
+
+| Property | What to put |
+| --- | --- |
+| `AUTH_USERNAME` | What you will type at sign-in, e.g. `you@example.com`. Case does not matter. |
+| `AUTH_PASSWORD` | A long password. |
+
+Until both are set, the app will not sign anyone in — it fails closed, which is what you want.
+
+A third property, `AUTH_SECRET`, appears by itself the first time you sign in. Leave it alone; it is how sessions are signed.
+
+Prefer not to type into that UI? Open `Setup.gs`, fill in `setCredentials`, run it once, then blank the password out of the file and save. Run **`checkConfiguration`** any time to confirm the backend can see a username (it never prints the password).
+
+To sign every device out at once: change `AUTH_PASSWORD`, or run **`resetSessions`**.
+
+### 6. Publish the backend
+
+1. **Deploy → New deployment**.
+2. Click the gear next to *Select type* and choose **Web app**.
+3. *Execute as*: **Me**. *Who has access*: **Anyone**.
+4. Click **Deploy**, approve if asked, and copy the **Web app URL**. It ends in `/exec`. Keep it handy.
+
+Why “Anyone”? The website lives on a different address than the script, so it cannot ride along on your Google login. The URL itself is not a secret and grants nothing — without your password the backend will not touch the sheet.
+
+Whenever you change the backend files later, open **Deploy → Manage deployments**, edit the existing one, and choose **New version**. Otherwise the live URL keeps serving the old code.
+
+### 7. Put the app on the web
+
+1. Go to [vercel.com/new](https://vercel.com/new) and import your fork. Vercel already knows this is a Vite app (`npm run build`, output `dist/`) — you do not need to change the build settings.
+2. Before you deploy, add one environment variable:
+
+   | Name | Value |
+   | --- | --- |
+   | `VITE_APPS_SCRIPT_URL` | The `/exec` URL you copied in the previous step |
+
+3. Deploy. Open the `*.vercel.app` URL Vercel gives you, tap **Get Spine** / **Sign in**, and use the username and password from Script Properties.
+
+That is the whole setup. Your session lasts 30 days on that device; **You → Account → Sign out** ends it early.
+
+**Please do not put the password in Vercel.** Only variables that start with `VITE_` are built into the website, which is exactly why the password is not one of them. It belongs in Script Properties, where only your Apps Script can read it.
+
+Vite bakes `VITE_APPS_SCRIPT_URL` in at build time. If you ever change it in Vercel, click **Redeploy** so the new value is actually used. Changing the Apps Script code instead needs a new deployment version *there* — no rebuild of the website.
+
+From your phone: open the site, then use *Add to Home Screen* (Safari) or *Install app* (Chrome). After that it feels like a normal app, camera and all.
+
+## If something looks wrong
+
+| What you see | What to try |
+| --- | --- |
+| Sign-in says the app has no library address | `VITE_APPS_SCRIPT_URL` is missing, or you changed it and have not redeployed yet. |
+| Sign-in says the library is not configured | `AUTH_USERNAME` and `AUTH_PASSWORD` are not both set in Script Properties. Run `checkConfiguration` in the Apps Script editor. |
+| Wrong password, even though you are sure | Check for a stray space. If the password has `#`, quotes or spaces and you set it from a `.env` file locally, wrap it in quotes. |
+| Backend changes do not show up | Create a **new version** of the existing web-app deployment, not a brand-new deployment with a new URL. |
+| Camera never starts | The page must be HTTPS (Vercel already is). Browsers hide the camera on plain `http://`, except sometimes on `localhost`. |
+| An old phone still shows an old version | Close the installed app fully and open it again. The service worker picks up updates on the next launch. |
 
 ## Local development
 
-### 1. Clone and install
+Useful if you want to try Spine on your computer before (or instead of) deploying.
+
+You need [Node.js 20.19 or newer](https://nodejs.org/).
 
 ```bash
-git clone https://github.com/<you>/spine-personal-library-manager.git
+git clone https://github.com/muhammed-ziyan/spine-personal-library-manager.git
 cd spine-personal-library-manager
 npm install
 ```
 
-### 2. Run
+Copy `.env.example` to `.env`. Two things live there:
+
+| Variable | Purpose |
+| --- | --- |
+| `VITE_APPS_SCRIPT_URL` | Where the app talks. Locally this is `/api` (the Vite proxy). In production it is your `/exec` URL. This is not a secret. |
+| `SPINE_AUTH_USERNAME` / `SPINE_AUTH_PASSWORD` | The sign-in the **local** backend accepts. No `VITE_` prefix, so they never reach the browser. |
+
+Quote a password that contains `#`, spaces or quotes. Node treats an unquoted `#` as the start of a comment and would silently chop the value.
 
 ```bash
-npm run dev        # http://localhost:5173
-npm run build      # production build in dist/
-npm run preview    # serve the production build
-npm test           # unit + backend tests
+npm run dev:backend   # local stand-in for Apps Script, http://localhost:8787
+npm run dev            # the app itself, https://localhost:5173
+```
+
+`npm run dev:backend` runs the real `apps-script/*.gs` files against an in-memory spreadsheet (the same harness the tests use). It reads the username and password from `.env` and will not start without them. Data disappears when you stop the process.
+
+The Vite dev server is HTTPS (a self-signed certificate) and proxies `/api` to that backend, which is what `VITE_APPS_SCRIPT_URL=/api` points at. `DEV_BACKEND_URL` in `.env` changes the proxy target if you need it to.
+
+To try the scanner on a phone, open the **Network** URL Vite prints and accept the certificate warning. Production builds only talk to `script.google.com`; development builds also allow your local or LAN address.
+
+Other commands:
+
+```bash
+npm run build       # production build in dist/
+npm run preview     # serve that build
+npm test            # unit + backend tests
 npm run lint
 npm run typecheck
 ```
 
-Copy `.env.example` to `.env` first. Two things are configured there:
+`npm run preview` does not apply the headers from `vercel.json`. A Vercel preview deployment is the faithful test of the live site.
 
-| Variable | Purpose |
-| --- | --- |
-| `VITE_APPS_SCRIPT_URL` | The deployment the app talks to: `/api` locally, the `/exec` URL in production. Ships inside the bundle, and is not a secret. |
-| `SPINE_AUTH_USERNAME` / `SPINE_AUTH_PASSWORD` | The sign-in the **local dev backend** accepts. No `VITE_` prefix, so they never reach the browser. |
+## Your data
 
-Quote a password containing `#`, spaces or quotes. Node reads an unquoted `#` in a `.env` file as the start of a comment, and would silently truncate the value.
+Your books sit in a Google Sheet in your Drive. You can open it, search it, export it, or delete it like any other spreadsheet. The website never chooses which sheet to use — that is locked to the script you attached.
 
-#### Developing without a Google deployment
-
-`npm run dev:backend` starts a local stand-in on `http://localhost:8787` that runs the **real** `apps-script/*.gs` code against an in-memory spreadsheet (the same harness the tests use), sign-in included. It reads `SPINE_AUTH_USERNAME` and `SPINE_AUTH_PASSWORD` from `.env` and refuses to start without them, exactly as a freshly deployed script refuses every request until its Script Properties are set.
-
-The dev server serves the app over https (self-signed) and proxies `/api` to that backend, which is what `VITE_APPS_SCRIPT_URL=/api` points at: it resolves against whatever origin you opened the app from, including the LAN URL on a phone. `DEV_BACKEND_URL` in `.env` changes the proxy target. Development builds also accept plain-http localhost/LAN URLs directly (blocked as mixed content when the page itself is https); production builds only talk to `script.google.com`. Data is lost when the process exits.
-
-To test the scanner on a phone, open the **Network** URL Vite prints (https) and accept the self-signed certificate. Browsers only expose the camera on secure origins.
-
-## Google Apps Script setup
-
-Everything below is free and takes about five minutes.
-
-### 1. Create the spreadsheet
-
-1. Create a new Google Sheet (any name, e.g. *Spine Library* — the app shows this name).
-2. Open **Extensions → Apps Script**. This creates a script *bound* to the sheet, so the backend can only ever see this one spreadsheet.
-
-### 2. Add the backend code
-
-1. In the Apps Script editor, delete the default `Code.gs` content.
-2. Create one file per file in this repo's [`apps-script/`](apps-script/) folder (`Auth.gs`, `Code.gs`, `Config.gs`, `Schema.gs`, `Security.gs`, `Validation.gs`, `Isbn.gs`, `Utils.gs`, `Books.gs`, `Genres.gs`, `Stats.gs`, `Setup.gs`) and paste the contents.
-3. Open **Project Settings** (gear icon), tick *Show "appsscript.json" manifest file*, and replace its contents with [`apps-script/appsscript.json`](apps-script/appsscript.json).
-
-   If you prefer the command line, [`clasp`](https://github.com/google/clasp) can push the folder directly: `npx @google/clasp push` from inside `apps-script/` after `clasp login` and `clasp clone <scriptId>`. The local `.clasp.json` is git-ignored.
-
-### 3. Create the tabs
-
-In the editor, select the **`setupSpreadsheet`** function and click **Run**. Approve the permissions when prompted. This creates the `Books`, `Genres`, `Settings` and `Reading History` tabs with headers, fills `Genres` with the default list, and initialises the ID counter. It is safe to run again later.
-
-You can edit the `Genres` tab at any time — the app reads it live.
-
-### 4. Set the sign-in — required
-
-In **Project Settings → Script Properties** add two properties:
-
-| Property | Value |
-| --- | --- |
-| `AUTH_USERNAME` | The username you will sign in with, e.g. `you@example.com`. Case-insensitive. |
-| `AUTH_PASSWORD` | A long password. This is the only thing guarding your library, so make it a real one. |
-
-Until both are set the API answers `NOT_CONFIGURED` to **everything**, sign-in included: it fails closed, never open. A third property, `AUTH_SECRET`, appears by itself on the first sign-in and is the key that signs session tokens — leave it alone.
-
-Run **`checkConfiguration`** to confirm what the backend sees; it prints the username, never the password. If you would rather not type into the properties UI, fill in and run **`setCredentials`** in `Setup.gs` instead, then blank it out again.
-
-Two ways to end every signed-in session at once: change `AUTH_PASSWORD`, or run **`resetSessions`**. Both invalidate outstanding tokens immediately, because the token signature is derived from the password and the secret together.
-
-### 5. Deploy the web app
-
-1. **Deploy → New deployment → Web app.**
-2. *Execute as*: **Me**. *Who has access*: **Anyone**.
-3. Deploy, approve permissions, and copy the **Web app URL** (ends in `/exec`).
-
-> Why "Anyone"? A PWA on another origin cannot send Google's session cookie to Apps Script, so the URL has to be reachable without a Google login. It is public anyway, since it ships inside the front-end bundle — which is exactly why the URL is not the credential. Without a valid session token the backend answers `UNAUTHORIZED` to every action but `login`, and `login` needs your password.
-
-Whenever you change the backend code, create a **new deployment version** (Deploy → Manage deployments → edit → new version) or the live URL keeps serving the old code.
-
-### 6. Point the app at it
-
-Set `VITE_APPS_SCRIPT_URL` to the `/exec` URL and rebuild. On **Vercel** that is *Project → Settings → Environment Variables*, followed by a **redeploy**: Vite bakes the value in at build time, so an existing deployment will not pick it up on its own. Locally it goes in `.env`. A build with no URL says so on the sign-in screen rather than failing at the first request.
-
-Then open the app and sign in with the username and password you put in Script Properties. The session lasts 30 days on that device; **You → Account → Sign out** ends it early.
-
-Only `VITE_`-prefixed variables reach the browser, which is precisely why the password is not one of them. Never add the password to Vercel's environment: it belongs in Script Properties, where only your Apps Script can read it.
-
-### 7. Deploy to Vercel
-
-Import the repository at [vercel.com/new](https://vercel.com/new). Vercel reads `vercel.json` and needs no manual configuration — framework *Vite*, `npm run build`, output `dist/`. The only thing you must add is the `VITE_APPS_SCRIPT_URL` environment variable above.
-
-`vercel.json` also handles:
-
-- **Single-page-app rewrites**, so deep links like `/books/BK-00007` survive a refresh. Static files are matched first, so the service worker and assets are still served normally.
-- **Caching** — the hashed files in `/assets` are immutable for a year; fonts and icons for 30 days; `sw.js` and the manifest are always revalidated, so an update reaches an installed PWA on the next launch.
-- **Security headers**, including a Content-Security-Policy that limits the app to its own origin plus `script.google.com` and `openlibrary.org`. See *Security* below.
-
-Before pushing, the same checks CI would run:
-
-```bash
-npm run lint && npm run typecheck && npm test && npm run build
-```
-
-`npm run preview` serves the built bundle, but without the headers from `vercel.json` — a Vercel preview deployment is the faithful test.
-
-#### Updating
-
-Every push to `main` redeploys. Because `VITE_APPS_SCRIPT_URL` is baked in at build time, changing it in Vercel's settings requires a **redeploy** to take effect; changing the *Apps Script* code instead requires a new deployment version there, and no rebuild here.
-
-## Security
-
-This repository is designed to be public.
-
-| Value | Where it lives | Secret? | Notes |
-| --- | --- | --- | --- |
-| Apps Script web app URL | `VITE_APPS_SCRIPT_URL`, baked into the bundle | No | Public by construction. Grants nothing on its own. |
-| Username and password | Apps Script Script Properties only | **Yes** | Never in the repo, never in the bundle, never in Vercel. Compared server-side; the password is never echoed back. |
-| Session token | Browser `localStorage` (per device) | **Yes** | HMAC-signed by the deployment, expires after 30 days. Sent in the POST body, never in the URL. |
-| `AUTH_SECRET` | Apps Script Script Properties (auto-generated) | **Yes** | Signs tokens. Delete it, or run `resetSessions`, to sign every device out. |
-| Spreadsheet | Bound to the script / `SPREADSHEET_ID` property | Private | The client can never choose a spreadsheet, sheet, range or formula. |
-
-Controls in the backend:
-
-- **Authentication** — one deployment serves one sheet, executing as its owner; there is no cross-sheet path. Every action but `login` requires a token, checked before any payload is inspected, so an unauthorised caller learns nothing about the data or the validation. Username and password are compared in constant time over digests, and a wrong username and a wrong password produce the identical message.
-- **Sessions** — tokens are HMAC-SHA256-signed and stateless, so nothing is stored server-side and cold starts cost nothing. The signing key mixes `AUTH_SECRET` with a digest of the current password, so **changing the password immediately invalidates every outstanding token**; so does rotating the secret. Tokens expire after 30 days, are bound to the username, and a token from one deployment is meaningless to another.
-- **Brute force** — 8 failed sign-ins lock the door for 15 minutes, and each further attempt slides that window forward.
-- **Input validation** — required fields, types, lengths (title/author/publisher ≤ 300, genre/language ≤ 100, notes ≤ 5000), ISBN checksums, enumerated statuses, 1–5 ratings, sane years and page counts. Unknown fields on updates are rejected. Requests over 64 KB are rejected.
-- **Formula injection** — any text beginning with `=`, `+`, `-`, `@`, `'` or a control character is stored with a text prefix so Sheets never evaluates it; a genuine leading apostrophe round-trips.
-- **IDs and concurrency** — Book IDs come from a persistent counter under `LockService`, never from row counts, so deletions can't cause reuse. Duplicate check + insert happen inside the same lock.
-- **Error hygiene** — internal exceptions are logged server-side and returned as a generic message.
-- **Rate limiting** — 120 requests per minute per deployment.
-- **CORS** — Apps Script forces `Access-Control-Allow-Origin: *` and cannot answer pre-flights; requests are therefore sent as simple `text/plain` POSTs. Production builds refuse to talk to anything but `script.google.com`.
-- **XSS** — all book data is rendered through React's escaped output; no `innerHTML`.
-- **Response headers** (`vercel.json`) — a Content-Security-Policy confines the app to its own origin: scripts and fonts from `'self'` only, connections only to `script.google.com`, `script.googleusercontent.com` (where Apps Script redirects) and `openlibrary.org`, images additionally from `covers.openlibrary.org`. `object-src 'none'`, `base-uri 'self'` and `frame-ancestors 'none'` close the usual injection escape hatches. `style-src` allows `'unsafe-inline'` because React writes a handful of computed `style` attributes — progress bars and skeletons. Alongside it: HSTS, `nosniff`, `X-Frame-Options: DENY` and a `Permissions-Policy` granting the camera to this origin alone, denying microphone and geolocation outright.
-- **Build hygiene** — production bundles carry no sourcemaps and no request tracing; the `[spine]` debug log that prints each payload is dropped by the minifier, while `console.error` is kept so a misconfigured deployment can still be diagnosed. `robots.txt` asks crawlers to stay out.
-- **Camera** — started only when you tap *Start Scanning*, stopped on success, cancel, navigation or backgrounding; frames are decoded in-browser and never stored or uploaded.
-
-Before publishing, `npm test` runs the backend against an in-memory Sheets stand-in covering sign-in, token forgery and expiry, lockout, validation, duplicates, ID generation, formula escaping and error leakage.
-
-## Google Sheet layout
-
-| Tab               | Columns                                                                                                                                                                              |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `Books`           | Book ID · ISBN · Title · Author · Genre · Language · Publisher · Publication Year · Edition · Pages · Format · Status · Rating · Date Added · Date Started · Date Finished · Notes · Cover URL · Updated At |
-| `Genres`          | Genre                                                                                                                                                                                |
-| `Settings`        | Key · Value (`schemaVersion`, `bookIdCounter` mirror)                                                                                                                                |
-| `Reading History` | Book ID · Previous Status · New Status · Changed At                                                                                                                                  |
-
-Column order is defined once in [`apps-script/Schema.gs`](apps-script/Schema.gs); nothing else depends on column positions.
+The password never ships in the app. The public `/exec` URL is not a key; without a signed-in session the backend refuses every action except “please sign in.” Changing the password (or running `resetSessions`) signs every device out immediately.
 
 ## License
 

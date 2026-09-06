@@ -1,16 +1,77 @@
 /*
  * The public front door — the "Spine Landing" artboard from the Claude Design
- * mockup, rebuilt on the app's own tokens so it follows the theme. Shown at `/`
- * to a signed-out visitor; every call to action leads to /signin.
+ * mockup, rebuilt on the app's own tokens. Shown at `/` to a signed-out
+ * visitor; every call to action leads to /signin.
  *
  * This is the one screen that is not phone-shaped: it widens to 1200px and
  * lays out in columns once there is room.
+ *
+ * The marketing site is light only. The whole light palette is re-declared on
+ * the page root, so the tokens resolve to their light values inside it however
+ * `<html data-theme>` is set — no coordination with usePreferences, which owns
+ * that attribute and would otherwise have to be fought on every system-theme
+ * change. Everything behind /signin still themes normally.
  */
 
 .page {
+  color-scheme: light;
+
+  --color-bg: #f5ead8;
+  --color-surface: #ebddc5;
+  --color-text: #201e1d;
+  --color-accent: #c67139;
+  --color-accent-2: #7a8a5e;
+  --color-divider: color-mix(in srgb, #201e1d 16%, transparent);
+  --color-on-accent: #f5ead8;
+
+  --color-neutral-100: #f9f4ed;
+  --color-neutral-200: #eee7db;
+  --color-neutral-300: #dcd3c4;
+  --color-neutral-400: #c0b6a5;
+  --color-neutral-500: #a19786;
+  --color-neutral-600: #82796a;
+  --color-neutral-700: #645c50;
+  --color-neutral-800: #474238;
+  --color-neutral-900: #2e2b25;
+
+  --color-accent-100: #fff2eb;
+  --color-accent-200: #ffe1d0;
+  --color-accent-300: #ffc6a5;
+  --color-accent-400: #f6a06b;
+  --color-accent-500: #d67f48;
+  --color-accent-600: #b2622d;
+  --color-accent-700: #8c491a;
+  --color-accent-800: #643312;
+  --color-accent-900: #402310;
+
+  --color-accent-2-100: #f0fae1;
+  --color-accent-2-200: #e1eecc;
+  --color-accent-2-300: #ccdbb2;
+  --color-accent-2-400: #aebf92;
+  --color-accent-2-500: #8fa073;
+  --color-accent-2-600: #728157;
+  --color-accent-2-700: #56633f;
+  --color-accent-2-800: #3d472b;
+  --color-accent-2-900: #272e1b;
+
+  --status-unread-bg: var(--color-neutral-200);
+  --status-unread-ink: var(--color-neutral-800);
+  --status-reading-bg: var(--color-accent-200);
+  --status-reading-ink: var(--color-accent-900);
+  --status-read-bg: var(--color-accent-2-200);
+  --status-read-ink: var(--color-accent-2-900);
+
+  --shadow-sm: 0 1px 2px color-mix(in srgb, #2e2b25 14%, transparent);
+  --shadow-md: 0 3px 10px color-mix(in srgb, #2e2b25 16%, transparent);
+  --shadow-lg: 0 12px 32px color-mix(in srgb, #2e2b25 22%, transparent);
+
   min-height: 100dvh;
   overflow-x: clip;
   text-wrap: pretty;
+  /* html carries the document background, which is still the visitor's theme;
+     paint the cream ground here so nothing dark shows through. */
+  background: var(--color-bg);
+  color: var(--color-text);
 }
 
 .shell {
@@ -233,15 +294,13 @@
 }
 
 /* ---- Phone mock (hero) ---- */
-/* The device frame is a literal, not a token: a phone is dark whichever theme
-   the visitor is in, and the neutral ramp inverts. */
 .phone {
   justify-self: center;
   width: 300px;
   border-radius: 40px;
   background: var(--color-bg);
   box-shadow: var(--shadow-lg);
-  border: 8px solid #2e2b25;
+  border: 8px solid var(--color-neutral-900);
   overflow: hidden;
   transform: rotate(-3deg);
 }
@@ -510,7 +569,7 @@
   background: var(--scanner-bg);
   color: var(--scanner-ink);
   box-shadow: var(--shadow-lg);
-  border: 8px solid #2e2b25;
+  border: 8px solid var(--color-neutral-900);
   overflow: hidden;
   position: relative;
   display: flex;
@@ -740,22 +799,104 @@
 }
 
 /* ---- Quote ---- */
-.quote {
+/* ---- Open source ---- */
+.oss {
   padding: 0 0 72px;
 }
 
-.quote blockquote {
-  font-family: var(--font-heading);
-  font-size: clamp(24px, 2.6vw, 32px);
-  line-height: 1.35;
-  max-width: 34ch;
-  margin: 0;
+.ossGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+  gap: 36px clamp(24px, 5vw, 80px);
+  align-items: start;
 }
 
-.quote figcaption {
+.ossTitle {
+  font-size: clamp(30px, 3.2vw, 40px);
+  line-height: 1.12;
+  max-width: 20ch;
+}
+
+.ossBody {
   font-size: 16px;
-  margin-top: 26px;
+  line-height: 1.65;
+  margin-top: 22px;
+  color: var(--color-neutral-800);
+  max-width: 46ch;
+}
+
+.ossActions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 28px;
+}
+
+/* The spec sheet: label on the left, value on the right, one rule between. */
+.specs {
+  margin: 0;
+  border-top: 1px solid var(--color-divider);
+}
+
+.specRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 24px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.specRow dt {
+  flex: none;
+  width: 108px;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 600;
   color: var(--color-neutral-700);
+}
+
+.specRow dd {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.specRow dd a {
+  color: var(--color-accent-700);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  overflow-wrap: anywhere;
+}
+
+.specRow dd a:hover {
+  color: var(--color-accent-800);
+}
+
+.clone {
+  margin: 24px 0 0;
+  padding: 14px 18px;
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--color-neutral-800);
+}
+
+/* The command wraps rather than scrolling out of the column — a clipped line
+   reads as a rendering bug, and there is nothing to lose by folding it. */
+.clone code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.clonePrompt {
+  color: var(--color-accent);
+  user-select: none;
 }
 
 /* ---- Closing call to action ---- */
