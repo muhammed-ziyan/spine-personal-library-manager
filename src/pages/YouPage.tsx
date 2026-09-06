@@ -177,7 +177,7 @@ export function YouPage() {
         </h2>
         <div className={styles.card}>
           <Row icon="user" tone="read" title={session?.username ?? 'Signed in'} subtitle={session ? `Signed in until ${formatDate(new Date(session.expiresAt).toISOString())}` : undefined} trailing={<Tag tone="reading">Signed in</Tag>} />
-          <Row as="button" icon="logout" tone="unread" title="Sign out" subtitle="You'll need your password to get back in" onClick={() => setSignOutOpen(true)} />
+          <Row as="button" icon="logout" tone="unread" title="Sign out" subtitle="You'll need your password to return" onClick={() => setSignOutOpen(true)} />
         </div>
       </section>
 
